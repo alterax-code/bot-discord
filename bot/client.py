@@ -17,6 +17,7 @@ import discord
 
 from .config import Config
 from .database import Database
+from .reactions import ReactionTracker
 from .tickets import TicketService
 from .ui import PanelView
 
@@ -107,6 +108,7 @@ class GrandLineBot(discord.Client):
         self._self_check_done = False
 
         self.tickets = TicketService(self, config, db)
+        self.reactions = ReactionTracker(self, config, db)
         self.panel_view = PanelView(self.tickets)
 
     # -- cycle de vie ------------------------------------------------------
@@ -175,8 +177,28 @@ class GrandLineBot(discord.Client):
                 len(orphans), ", ".join(f"#{r['id']}" for r in orphans),
             )
 
+        # Rattraper ce qui s'est passé pendant l'arrêt AVANT de se déclarer prêt.
+        await self.reactions.reconcile()
+
         await self.tickets.ensure_panel(self.panel_view)
         log.info("Bot opérationnel : les joueurs peuvent ouvrir des tickets.")
+
+    # -- événements --------------------------------------------------------
+
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
+        # « raw » et non l'événement classique : celui-ci fonctionne aussi sur
+        # les messages absents du cache, donc sur les tickets antérieurs au
+        # démarrage du bot.
+        try:
+            await self.reactions.handle_add(payload)
+        except Exception:
+            log.exception("Erreur pendant le traitement d'une réaction (message %s).", payload.message_id)
+
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent) -> None:
+        # Volontairement inerte : retirer une réaction ne défait rien.
+        # Deux personnes sur la croix rouge ont bien trouvé le bug à deux,
+        # même si l'une d'elles déclique ensuite.
+        return
 
     # -- autodiagnostic ----------------------------------------------------
 
