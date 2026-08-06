@@ -1,0 +1,14 @@
+[Unit]
+Description=Sauvegarde quotidienne de la base du bot Grand Line RP
+
+[Timer]
+# Tous les jours à 3 h du matin, heure de Paris — avant la fenêtre de
+# redémarrage automatique du système, fixée à 4 h.
+OnCalendar=*-*-* 03:00:00
+# Si le serveur était éteint à l'heure prévue, rattraper au démarrage plutôt
+# que sauter la sauvegarde.
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

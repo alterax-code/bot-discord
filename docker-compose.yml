@@ -1,0 +1,37 @@
+services:
+  bot:
+    build: .
+    image: grandline-bot:latest
+    container_name: grandline-bot
+
+    # « unless-stopped » couvre les deux cas qui comptent : le bot qui plante,
+    # et le serveur qui redémarre. Il ne repart PAS si tu l'as arrêté toi-même
+    # à la main — sinon impossible de le laisser éteint volontairement.
+    restart: unless-stopped
+
+    # Le jeton vient d'ici. Ce fichier n'est pas dans le dépôt Git et n'entre
+    # pas dans l'image : il vit uniquement sur le serveur.
+    env_file:
+      - .env
+
+    volumes:
+      # La base survit à toute reconstruction de l'image. C'est le seul
+      # élément réellement irremplaçable du service.
+      - ./data:/data
+
+    # Aucun « ports: » — volontairement. Le bot n'accepte aucune connexion
+    # entrante. C'est ce qui le rend insensible au contournement d'UFW par
+    # Docker : il n'y a rien à exposer.
+
+    networks:
+      - grandline
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  grandline:
+    external: true

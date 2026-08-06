@@ -1,0 +1,21 @@
+# Ce qui ne doit JAMAIS entrer dans l'image
+.env
+.env.*
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Inutile dans l'image
+.git/
+.gitignore
+.gitattributes
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+README.md
+legacy_import.toml
+docker-compose.yml
+Dockerfile
+.dockerignore

@@ -1,0 +1,8 @@
+[Unit]
+Description=Sauvegarde de la base du bot Grand Line RP
+After=docker.service
+
+[Service]
+Type=oneshot
+User=alterax
+ExecStart=/srv/grandline/bot/deploy/backup-db.sh
