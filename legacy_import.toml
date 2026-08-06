@@ -1,0 +1,242 @@
+# =============================================================================
+#  IMPORT DES ANCIENS SIGNALEMENTS — À RELIRE AVANT EXÉCUTION
+#
+#  Reprise des 32 messages postés à la main avant la mise en place du bot.
+#  Statuts relevés sur les réactions d'origine : 13 faits, 2 en cours, 17 à faire.
+#
+#  kind     : "bug" ou "feature"          → détermine l'en-tête et la couleur
+#  title    : le titre affiché            → sert aussi de titre dans l'archive
+#  detail   : le texte d'origine          → repris tel quel, sans réécriture
+#  author   : le pseudo d'origine         → le bot cherchera le compte Discord correspondant
+#  statut   : "signale" (❌) | "en_cours" (⚠️) | "valide" (✅)
+#
+#  Un ticket "valide" ne va PAS dans le salon des tickets : il part directement
+#  dans l'archive du jour et dans l'annonce publique, puisqu'il est déjà traité.
+#
+#  Le classement bug / ajout est déduit du texte. Trois cas ambigus sont
+#  signalés par un commentaire « (à confirmer) ».
+# =============================================================================
+
+[[ticket]]
+kind = "bug"
+title = "Sièges des bateaux"
+detail = "corriger les sieges des bateaux"
+author = "altérax"
+statut = "valide"
+
+[[ticket]]
+kind = "feature"          # (à confirmer) demande ou panne ?
+title = "Voir les noms après s'être présenté"
+detail = "voir les nom apres s'etre presenté"
+author = "Monkey D Natsu"
+statut = "signale"
+
+[[ticket]]
+kind = "bug"
+title = "PNJ vendeur de bateaux et inventaire qui ne charge pas"
+detail = "corriger le bug du pnj vendeur de bateaux et l'inventaire pas charger"
+author = "altérax"
+statut = "valide"
+
+[[ticket]]
+kind = "bug"
+title = "Changement de vue"
+detail = "CHANGEMENT DE VUE BUG"
+author = "Sensei San"
+statut = "valide"
+
+[[ticket]]
+kind = "feature"
+title = "Menu F2 : rejoindre un groupe facilement"
+detail = "menu f2 rejoindre un groupe facilement"
+author = "altérax"
+statut = "valide"
+
+[[ticket]]
+kind = "feature"
+title = "Dégâts de chute"
+detail = "mettre des degat de chute en place"
+author = "altérax"
+statut = "valide"
+
+[[ticket]]
+kind = "bug"
+title = "Menu B des compétences"
+detail = "bug du menu B competences"
+author = "altérax"
+statut = "en_cours"
+
+[[ticket]]
+kind = "feature"
+title = "Menu F6 de présentation à améliorer"
+detail = "Faire un meilleur menu F6 pour se présenter"
+author = "Falcko"
+statut = "signale"
+
+[[ticket]]
+kind = "bug"
+title = "Échap n'interrompt pas le dialogue PNJ"
+detail = "bug interaction pnj echap ne ferme pas le dialogue mais ouvre le panel garrys mod avec la console"
+author = "altérax"
+statut = "valide"
+
+[[ticket]]
+kind = "feature"
+title = "Menu /ost"
+detail = "Mettre un menu /ost"
+author = "Falcko"
+statut = "signale"
+
+[[ticket]]
+kind = "feature"
+title = "Remplacer les citizens Gmod par des PM"
+detail = "Mettre des PM, pas citizen Gmod"
+author = "Falcko"
+statut = "valide"
+
+[[ticket]]
+kind = "bug"
+title = "Rectangle blanc dans l'arbre de compétences (F4)"
+detail = "onglet arbrre de competence menu f4 rectangle blanc qui apparais quelques seconde a corriger"
+author = "altérax"
+statut = "valide"
+
+[[ticket]]
+kind = "feature"
+title = "Onglet Ryu à transformer en onglet Sento"
+detail = "modifier l'onglet ryu en onglet sento ( c'est ici qu'il y a l'arbre de competence lié au sento debloqué si aucun sento debloqué visuel des card des sento a debloquer avec un boutton rediriger vers la boutique sur les relance de caisse)"
+author = "altérax"
+statut = "valide"
+
+[[ticket]]
+kind = "feature"
+title = "Spectate : voir et entendre le joueur observé"
+detail = "avec spectate, on doit pouvoir entendre et voir ce que la personne vois"
+author = "Falcko"
+statut = "signale"
+
+[[ticket]]
+kind = "bug"
+title = "Onglet équipage purement visuel"
+detail = "corriger l'onglet équipage pour qu'il fonctionne (que visuel actuellement)"
+author = "altérax"
+statut = "signale"
+
+[[ticket]]
+kind = "feature"
+title = "Menu F7 dédié aux tenues possédées"
+detail = "le menu f7 doit desormais etre dedié au tenu posseder par le joueuer berrys et pps"
+author = "altérax"
+statut = "valide"
+
+[[ticket]]
+kind = "feature"          # (à confirmer) correction d'un comportement existant ?
+title = "Bring : téléporter à côté et non au regard"
+detail = "Bring a coter, et pas au regard"
+author = "Falcko"
+statut = "signale"
+
+[[ticket]]
+kind = "feature"
+title = "Réapparition au point de déconnexion"
+detail = "Respawn la ou on c'est deco"
+author = "Falcko"
+statut = "signale"
+
+[[ticket]]
+kind = "feature"
+title = "Porter et relever un joueur KO avec E"
+detail = "ajouter la fonction porter/revive avec e en regardant un joueuer KO"
+author = "altérax"
+statut = "en_cours"
+
+[[ticket]]
+kind = "bug"
+title = "F11 cosmétiques : mauvaise tête sur les modèles d'origine"
+detail = "corriger le menu f11 partie cosmetic les player originaux applique le modele avec la tete du player et pas la tete du model original"
+author = "altérax"
+statut = "valide"
+
+[[ticket]]
+kind = "bug"              # (à confirmer) « bizarre » penche vers l'anomalie
+title = "Vitesse de marche et de course incohérente"
+detail = "Vitesse de marche et course + ou - (la vitesse est bizarre)"
+author = "Falcko"
+statut = "signale"
+
+[[ticket]]
+kind = "feature"
+title = "Créer les PNJ métiers via F7 et F11"
+detail = "outils deja en place plus qu'a le faire, crée un nouveaux perso avec le skin souhaiter, l'equiper de la tenue souhaiter avec f7, puis dans le menu f11 cosmetique l'ajouter en tant que player pnj pour tel ou tel metier dans l'onglet dedié."
+author = "altérax"
+statut = "valide"
+
+[[ticket]]
+kind = "bug"
+title = "Mauvaise map au lancement du serveur"
+detail = "coriger le bug de map au lancement du serveur qui nous connect sur la map de base et qui nous oblige a lancer la commande : changelevel rp_pirate_allblue_1_v4"
+author = "altérax"
+statut = "valide"
+
+[[ticket]]
+kind = "feature"
+title = "Se renommer en admin"
+detail = "pouvoir ce rename en admin"
+author = "Falcko"
+statut = "signale"
+
+[[ticket]]
+kind = "feature"
+title = "Changer la taille des PM en jeu"
+detail = "Pouvoir changer les pm de taille en jeu"
+author = "Falcko"
+statut = "signale"
+
+[[ticket]]
+kind = "feature"
+title = "Installer toutes les images de Sentos"
+detail = "Installer tout les images de Sentos disponible"
+author = "Falcko"
+statut = "signale"
+
+[[ticket]]
+kind = "bug"
+title = "Hakis, fruits et rangs non persistants"
+detail = "Les hakis, les FDD Ainsi que les rangs ne persistent pas à chaque redémarrage serveur ou connexion."
+author = "Falcko"
+statut = "signale"
+
+[[ticket]]
+kind = "bug"
+title = "Portes de l'ascenseur du Weazel News"
+detail = "Les portes de l'ascenseur du weazel news marche pas"
+author = "Falcko"
+statut = "signale"
+
+[[ticket]]
+kind = "bug"
+title = "Têtes des PNJ"
+detail = "Les PNJ ont un énorme problème de têtes"
+author = "Falcko"
+statut = "signale"
+
+[[ticket]]
+kind = "bug"
+title = "Entrée dans le CP9 laborieuse"
+detail = "Rentrée dans le CP9 un peut laborieux"
+author = "Falcko"
+statut = "signale"
+
+[[ticket]]
+kind = "feature"
+title = "Serrure pour les clefs des bateaux"
+detail = "Mettre une sorte de serrure pour voir ou utiliser les clefs sur le bateau."
+author = "Falcko"
+statut = "signale"
+
+[[ticket]]
+kind = "feature"
+title = "Définir librement ses points de vie"
+detail = "Pouvoir ce set hp autant qu'on veut"
+author = "Falcko"
+statut = "signale"
