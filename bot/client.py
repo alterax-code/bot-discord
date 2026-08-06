@@ -208,13 +208,15 @@ class GrandLineBot(discord.Client):
         # Opérations ponctuelles : elles ne doivent PAS être précédées d'une
         # réconciliation, qui validerait des tickets qu'on s'apprête à effacer.
         if self.oneshot:
-            from .importer import reset, run_import
+            from .importer import cleanup_legacy, reset, run_import
 
             try:
                 if self.oneshot == "reset":
                     await reset(self)
                 elif self.oneshot == "import":
                     await run_import(self)
+                elif self.oneshot == "cleanup-legacy":
+                    await cleanup_legacy(self)
             except Exception:
                 log.exception("Opération « %s » en échec.", self.oneshot)
             await self.close()

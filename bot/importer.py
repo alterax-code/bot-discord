@@ -201,3 +201,78 @@ async def run_import(bot) -> None:
         "%d archivés et annoncés.",
         len(lignes), publies, len(a_valider),
     )
+
+
+# =============================================================================
+#  TRACE DE LA REPRISE, PUIS SUPPRESSION DES MESSAGES D'ORIGINE
+# =============================================================================
+
+async def cleanup_legacy(bot) -> None:
+    """Dépose la note de reprise dans l'archive, PUIS supprime les originaux.
+
+    Cet ordre n'est pas négociable : si la note échoue, rien n'est supprimé.
+    Une fois les messages d'origine effacés, ils ne reviennent pas.
+    """
+    cfg, db = bot.config, bot.db
+
+    lignes = tomllib.loads(FICHIER_TOML.read_text(encoding="utf-8"))["ticket"]
+    scan = json.loads(FICHIER_SCAN.read_text(encoding="utf-8"))
+    if len(lignes) != len(scan):
+        raise RuntimeError("Sources désalignées : suppression refusée.")
+
+    # --- 1. la note d'archive ---------------------------------------------
+    canal_archives = bot.get_channel(cfg.channels.archives)
+    if not isinstance(canal_archives, discord.TextChannel):
+        raise RuntimeError("Salon des archives introuvable.")
+
+    marques = {"valide": "✅", "en_cours": "⚠️", "signale": "❌"}
+    corps = []
+    for i, (ligne, source) in enumerate(zip(lignes, scan), start=1):
+        icone = "🐛" if ligne["kind"] == "bug" else "✨"
+        corps.append(
+            f"`#{i:02}` {marques.get(ligne['statut'], '·')} {icone} "
+            f"{ligne['title']} — *{source['auteur_nom']}*"
+        )
+
+    faits = sum(1 for l in lignes if l["statut"] == "valide")
+    cours = sum(1 for l in lignes if l["statut"] == "en_cours")
+    restants = len(lignes) - faits - cours
+    date_debut = scan[0]["date"][:10]
+
+    embed = discord.Embed(
+        title="📜 Reprise des signalements antérieurs au bot",
+        description=(
+            f"Les **{len(lignes)} signalements** postés à la main dans ce salon avant la mise "
+            "en place du bot ont été convertis en tickets. Leurs messages d'origine ont été "
+            "supprimés après cette note.\n\n"
+            f"Origine : messages du {date_debut} · "
+            f"**{faits}** déjà faits · **{cours}** en cours · **{restants}** à traiter\n\n"
+            + "\n".join(corps)
+        )[:4096],
+        colour=discord.Colour.dark_gold(),
+    )
+    embed.set_footer(text="Auteurs et réactions repris des messages d'origine — Archive Grand Line RP")
+    note = await canal_archives.send(embed=embed)
+    log.info("Note de reprise publiée dans l'archive (message %s).", note.id)
+
+    # --- 2. la suppression, seulement maintenant --------------------------
+    canal = bot.get_channel(cfg.channels.tickets)
+    if not isinstance(canal, discord.TextChannel):
+        raise RuntimeError("Salon des tickets introuvable.")
+
+    supprimes, absents = 0, 0
+    for source in scan:
+        try:
+            message = await canal.fetch_message(int(source["message_id"]))
+            await message.delete()
+            supprimes += 1
+        except discord.NotFound:
+            absents += 1
+        except discord.HTTPException as exc:
+            log.warning("Message d'origine %s non supprimé : %s", source["message_id"], exc)
+
+    log.warning(
+        "Messages d'origine supprimés : %d (%d déjà absents). "
+        "Leur contenu, leurs auteurs et leurs réacteurs sont conservés en base.",
+        supprimes, absents,
+    )

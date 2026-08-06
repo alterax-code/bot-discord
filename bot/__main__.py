@@ -89,7 +89,12 @@ def main() -> int:
     args = sys.argv[1:]
     check_only = "--check" in args
     scan_legacy = "--scan-legacy" in args
-    oneshot = "reset" if "--reset" in args else ("import" if "--import" in args else None)
+    oneshot = None
+    for drapeau, nom in (("--reset", "reset"), ("--import", "import"),
+                         ("--cleanup-legacy", "cleanup-legacy")):
+        if drapeau in args:
+            oneshot = nom
+            break
     try:
         return asyncio.run(_run(check_only, scan_legacy, oneshot))
     except KeyboardInterrupt:
