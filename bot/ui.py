@@ -18,6 +18,7 @@ import discord
 
 if TYPE_CHECKING:
     from .tickets import TicketService
+    from .validation import ValidationService
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ log = logging.getLogger(__name__)
 # déjà publié : ses boutons ne seraient plus reconnus après un redémarrage.
 BTN_BUG = "grandline:ticket:bug"
 BTN_FEATURE = "grandline:ticket:feature"
+BTN_UNDO = "grandline:archive:undo"
 
 
 class _TicketModal(discord.ui.Modal):
@@ -171,3 +173,24 @@ class PanelView(discord.ui.View):
     )
     async def on_feature(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         await interaction.response.send_modal(FeatureModal(self.service))
+
+
+class ArchiveView(discord.ui.View):
+    """Le bouton d'annulation, accroché à la dernière page de l'archive du jour.
+
+    Il ne vit que sur la page la plus récente : c'est elle qui porte la
+    validation la plus récente, seule cible possible d'un retour arrière.
+    """
+
+    def __init__(self, validation: ValidationService) -> None:
+        super().__init__(timeout=None)
+        self.validation = validation
+
+    @discord.ui.button(
+        label="Annuler la dernière validation",
+        emoji="↩️",
+        style=discord.ButtonStyle.secondary,
+        custom_id=BTN_UNDO,
+    )
+    async def on_undo(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await self.validation.handle_undo(interaction)

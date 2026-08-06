@@ -32,7 +32,7 @@ def now_iso() -> str:
     """
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # --- États possibles d'un ticket -------------------------------------------
 # open       : publié dans fix-bug, en attente
@@ -98,6 +98,34 @@ CREATE TABLE IF NOT EXISTS archive_pages (
     char_count INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (day, page_no)
 );
+
+-- Une LIGNE D'ARCHIVE. Un même ticket peut en avoir plusieurs : une annulée,
+-- puis celle de la revalidation. C'est ce qui permet au couac de rester
+-- visible même si le ticket n'est jamais revalidé.
+--
+-- snapshot_json fige le contenu ET les participants AU MOMENT de la
+-- validation : l'archive ne doit pas changer si le ticket est modifié après.
+CREATE TABLE IF NOT EXISTS archive_entries (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id         INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    day               TEXT    NOT NULL,
+    page_no           INTEGER NOT NULL,
+    validated_at      TEXT    NOT NULL,
+    validated_by      INTEGER,
+    validated_by_name TEXT    NOT NULL,
+    snapshot_json     TEXT    NOT NULL,
+    cancelled         INTEGER NOT NULL DEFAULT 0,
+    cancelled_at      TEXT,
+    cancelled_by_name TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_entries_page ON archive_entries(day, page_no);
+CREATE INDEX IF NOT EXISTS idx_entries_ticket ON archive_entries(ticket_id);
+
+-- GARDE-FOU CONTRE LA DOUBLE VALIDATION : un ticket ne peut avoir qu'une
+-- seule entrée active. Deux coches vertes simultanées ne peuvent donc pas
+-- produire deux publications, même si le verrou applicatif était contourné.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_active
+    ON archive_entries(ticket_id) WHERE cancelled = 0;
 
 -- Les « couacs » : annulations de validation. Conservés pour que l'archive
 -- puisse les mentionner, même si le ticket n'est jamais revalidé.
@@ -246,6 +274,113 @@ class Database:
         )
         await self.conn.commit()
         return cur.rowcount > 0
+
+    # -- machine à états du ticket ----------------------------------------
+
+    async def set_state(self, ticket_id: int, state: str, **fields) -> None:
+        if state not in STATES:
+            raise ValueError(f"État inconnu : {state}")
+        cols = ", ".join(f"{k} = ?" for k in fields)
+        sql = "UPDATE tickets SET state = ?" + (f", {cols}" if cols else "") + " WHERE id = ?"
+        await self.conn.execute(sql, (state, *fields.values(), ticket_id))
+        await self.conn.commit()
+
+    async def tickets_in_progress(self) -> list[aiosqlite.Row]:
+        """Validations interrompues en plein vol par une coupure.
+
+        Ces tickets doivent être repris là où ils en étaient, sans quoi un
+        ticket resterait archivé mais jamais publié, ou publié mais jamais
+        retiré du salon de travail.
+        """
+        return await self._fetchall(
+            "SELECT * FROM tickets WHERE state IN ('validating','archived','published') ORDER BY id"
+        )
+
+    # -- entrées d'archive -------------------------------------------------
+
+    async def create_entry(
+        self,
+        *,
+        ticket_id: int,
+        day: str,
+        page_no: int,
+        validated_by: int | None,
+        validated_by_name: str,
+        snapshot: dict,
+    ) -> int | None:
+        """Crée l'entrée d'archive. Rend None si le ticket en a DÉJÀ une active.
+
+        Ce None est la deuxième barrière contre la double validation : il vient
+        d'une contrainte d'unicité en base, donc il tient même si le verrou
+        applicatif venait à céder.
+        """
+        try:
+            cur = await self.conn.execute(
+                "INSERT INTO archive_entries"
+                "(ticket_id, day, page_no, validated_at, validated_by, validated_by_name, snapshot_json) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    ticket_id, day, page_no, now_iso(), validated_by, validated_by_name,
+                    json.dumps(snapshot, ensure_ascii=False),
+                ),
+            )
+        except aiosqlite.IntegrityError:
+            log.warning("Ticket #%d a déjà une entrée d'archive active — création refusée.", ticket_id)
+            return None
+        await self.conn.commit()
+        return int(cur.lastrowid)
+
+    async def active_entry(self, ticket_id: int) -> aiosqlite.Row | None:
+        return await self._fetchone(
+            "SELECT * FROM archive_entries WHERE ticket_id = ? AND cancelled = 0", (ticket_id,)
+        )
+
+    async def entries_on_page(self, day: str, page_no: int) -> list[aiosqlite.Row]:
+        return await self._fetchall(
+            "SELECT * FROM archive_entries WHERE day = ? AND page_no = ? ORDER BY id",
+            (day, page_no),
+        )
+
+    async def latest_active_entry(self, day: str) -> aiosqlite.Row | None:
+        """La validation la plus récente encore en vigueur — cible du bouton d'annulation."""
+        return await self._fetchone(
+            "SELECT * FROM archive_entries WHERE day = ? AND cancelled = 0 ORDER BY id DESC LIMIT 1",
+            (day,),
+        )
+
+    async def cancel_entry(self, entry_id: int, by_name: str) -> None:
+        await self.conn.execute(
+            "UPDATE archive_entries SET cancelled = 1, cancelled_at = ?, cancelled_by_name = ? "
+            "WHERE id = ?",
+            (now_iso(), by_name, entry_id),
+        )
+        await self.conn.commit()
+
+    async def log_incident(self, ticket_id: int, actor_id: int, actor_name: str, details: str) -> None:
+        await self.conn.execute(
+            "INSERT INTO incidents(ticket_id, actor_id, actor_name, at, details) VALUES (?, ?, ?, ?, ?)",
+            (ticket_id, actor_id, actor_name, now_iso(), details),
+        )
+        await self.conn.commit()
+
+    async def incidents_for(self, ticket_id: int) -> list[aiosqlite.Row]:
+        return await self._fetchall(
+            "SELECT * FROM incidents WHERE ticket_id = ? ORDER BY id", (ticket_id,)
+        )
+
+    # -- pages d'archive ---------------------------------------------------
+
+    async def pages_for_day(self, day: str) -> list[aiosqlite.Row]:
+        return await self._fetchall(
+            "SELECT * FROM archive_pages WHERE day = ? ORDER BY page_no", (day,)
+        )
+
+    async def add_page(self, day: str, page_no: int, message_id: int) -> None:
+        await self.conn.execute(
+            "INSERT OR REPLACE INTO archive_pages(day, page_no, message_id) VALUES (?, ?, ?)",
+            (day, page_no, message_id),
+        )
+        await self.conn.commit()
 
     async def participants(self, ticket_id: int) -> dict[str, list[str]]:
         """Les noms des participants, groupés par émoji, dans l'ordre d'arrivée."""

@@ -15,11 +15,13 @@ import socket
 import aiohttp
 import discord
 
+from .archive import ArchiveService
 from .config import Config
 from .database import Database
 from .reactions import ReactionTracker
 from .tickets import TicketService
-from .ui import PanelView
+from .ui import ArchiveView, PanelView
+from .validation import ValidationService
 
 log = logging.getLogger(__name__)
 
@@ -120,8 +122,18 @@ class GrandLineBot(discord.Client):
         self._self_check_done = False
 
         self.tickets = TicketService(self, config, db)
+        self.archive = ArchiveService(self, config, db)
+        self.validation = ValidationService(self, config, db, self.tickets, self.archive)
         self.reactions = ReactionTracker(self, config, db)
+
+        # Une coche verte autorisée déclenche la chaîne de validation.
+        self.reactions.on_validated = self.validation.validate
+        # L'archive doit pouvoir accrocher le bouton d'annulation sur sa
+        # dernière page à chaque réécriture.
+        self.archive.undo_view_factory = lambda: ArchiveView(self.validation)
+
         self.panel_view = PanelView(self.tickets)
+        self.archive_view = ArchiveView(self.validation)
 
     # -- cycle de vie ------------------------------------------------------
 
@@ -131,7 +143,8 @@ class GrandLineBot(discord.Client):
         # boutons d'un message publié il y a des semaines de redevenir actifs
         # après un redémarrage.
         self.add_view(self.panel_view)
-        log.info("Vue persistante enregistrée : les boutons survivent aux redémarrages.")
+        self.add_view(self.archive_view)
+        log.info("Vues persistantes enregistrées : les boutons survivent aux redémarrages.")
 
     async def on_ready(self) -> None:
         # on_ready peut se déclencher plusieurs fois (reconnexions réseau).
@@ -189,7 +202,10 @@ class GrandLineBot(discord.Client):
                 len(orphans), ", ".join(f"#{r['id']}" for r in orphans),
             )
 
-        # Rattraper ce qui s'est passé pendant l'arrêt AVANT de se déclarer prêt.
+        # Ordre volontaire : d'abord finir ce qui avait été commencé, ensuite
+        # seulement rattraper les réactions — lesquelles peuvent déclencher de
+        # nouvelles validations.
+        await self.validation.resume()
         await self.reactions.reconcile()
 
         await self.tickets.ensure_panel(self.panel_view)
