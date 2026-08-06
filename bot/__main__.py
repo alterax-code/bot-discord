@@ -63,6 +63,12 @@ async def _run(check_only: bool) -> int:
         if not bot.is_closed():
             await bot.close()
         await db.close()
+        # Laisse aiohttp achever la fermeture de ses connexions avant que la
+        # boucle ne disparaisse. Sans ce délai, le ramasse-miettes signale un
+        # « Unclosed connector » au niveau ERROR alors que tout s'est bien
+        # passé — et des fausses erreurs dans les journaux finissent par
+        # rendre les vraies invisibles.
+        await asyncio.sleep(0.25)
 
     # En mode diagnostic, le code de sortie EST le verdict : 0 si tout va bien,
     # 5 sinon. Un script de déploiement peut donc s'arrêter avant de casser
