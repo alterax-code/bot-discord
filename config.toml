@@ -1,0 +1,68 @@
+# =============================================================================
+#  Grand Line RP — configuration du bot de tickets
+#
+#  Ce fichier ne contient AUCUN secret : uniquement des identifiants Discord,
+#  qui sont publics par nature. Il est donc versionné dans Git.
+#  Le jeton, lui, vit dans « .env », exclu du dépôt.
+#
+#  Règle du projet : rien de spécifique au serveur ne doit être écrit en dur
+#  dans le code. Tout ce qui suit est modifiable sans toucher une ligne de Python.
+# =============================================================================
+
+[discord]
+# Le serveur Discord de Grand Line RP.
+guild_id = 1524700663869870080
+
+
+[channels]
+# Salon staff : les tickets en cours de traitement.
+tickets = 1534716188989325522
+# Salon staff : la traçabilité complète, un message par jour.
+archives = 1534933876885950474
+# Salon joueurs : uniquement ce qui a été corrigé ou ajouté.
+public = 1534927529905881239
+
+
+[roles]
+# Rôles autorisés à VALIDER (poser la coche verte et déclencher la publication).
+# Uniquement des rôles humains du staff — les rôles de bots en sont exclus,
+# et « gérant staff » n'y figure pas car il n'a pas accès au salon des tickets.
+validators = [
+  1533804625206186055,  # passe all
+  1524700663924260942,  # direction
+  1532717004761469099,  # coordinateur
+  1524700663924260941,  # gérant équipe technique
+  1524700663924260939,  # admin
+  1534183320059908318,  # dev
+]
+
+
+[reactions]
+# Les trois statuts. Modifiables, mais changer un émoji en cours de route
+# rend les réactions déjà posées sur les tickets ouverts inexploitables.
+reported = "❌"      # signalé, rien n'a encore été fait
+fixing = "⚠️"        # corrigé ou en cours, reste à tester en ligne
+validated = "✅"     # testé et validé SUR LE SERVEUR EN LIGNE
+
+
+[publication]
+# Préfixes des annonces dans le salon joueurs.
+prefix_bug = "Correctif :"
+prefix_feature = "Ajout :"
+
+
+[archive]
+# Fuseau qui découpe les journées de l'archive. Ne pas changer sans réfléchir :
+# il détermine à quelle heure bascule le message du jour.
+timezone = "Europe/Paris"
+# Seuil de bascule vers une nouvelle page. Discord plafonne la description
+# d'un encart à 4096 caractères ; on garde une marge pour l'en-tête et la pagination.
+max_page_chars = 3600
+# Une entrée d'archive plus longue que cela est tronquée à l'affichage.
+# Le texte intégral reste conservé en base, rien n'est perdu.
+max_entry_chars = 1200
+
+
+[behaviour]
+# Le message permanent à boutons est-il épinglé automatiquement ?
+pin_panel = true

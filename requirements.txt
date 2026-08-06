@@ -1,0 +1,12 @@
+# Versions figées : le conteneur installera exactement les mêmes que ton poste.
+discord.py==2.6.4
+aiosqlite==0.21.0
+python-dotenv==1.1.1
+
+# Base IANA des fuseaux horaires, embarquée dans le projet.
+# Sans elle, « Europe/Paris » est introuvable sur Windows (qui n'a pas de base
+# système) et sur les images Docker minimales. Le découpage journalier de
+# l'archive serait alors faux ou impossible selon la machine — l'embarquer
+# garantit un comportement identique partout, y compris pour les changements
+# d'heure d'été.
+tzdata==2026.3
