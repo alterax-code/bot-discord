@@ -23,7 +23,7 @@ from .logging_setup import setup as setup_logging
 log = logging.getLogger("bot")
 
 
-async def _run(check_only: bool) -> int:
+async def _run(check_only: bool, scan_legacy: bool = False) -> int:
     try:
         config = load(os.environ.get("CONFIG_PATH", "config.toml"))
     except ConfigError as exc:
@@ -43,7 +43,9 @@ async def _run(check_only: bool) -> int:
     db = Database(Path(os.environ.get("DATA_DIR", "data")) / "grandline.db")
     await db.connect()
 
-    bot = GrandLineBot(config, db, check_only=check_only, force_ipv4=force_ipv4)
+    bot = GrandLineBot(
+        config, db, check_only=check_only, force_ipv4=force_ipv4, scan_legacy=scan_legacy
+    )
     try:
         await bot.start(config.token)
     except discord.LoginFailure:
@@ -83,9 +85,11 @@ async def _run(check_only: bool) -> int:
 
 
 def main() -> int:
-    check_only = "--check" in sys.argv[1:]
+    args = sys.argv[1:]
+    check_only = "--check" in args
+    scan_legacy = "--scan-legacy" in args
     try:
-        return asyncio.run(_run(check_only))
+        return asyncio.run(_run(check_only, scan_legacy))
     except KeyboardInterrupt:
         print("\nArrêt manuel.", file=sys.stderr)
         return 0

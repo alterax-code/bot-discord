@@ -84,6 +84,7 @@ class GrandLineBot(discord.Client):
         *,
         check_only: bool = False,
         force_ipv4: bool = False,
+        scan_legacy: bool = False,
     ) -> None:
         # Sur un réseau où l'IPv6 est annoncée mais ne répond pas, la résolution
         # DNS de Discord se bloque une dizaine de secondes avant d'abandonner.
@@ -99,6 +100,9 @@ class GrandLineBot(discord.Client):
         # de relancer le service en production.
         self.check_only = check_only
         self.check_passed = False
+        # Lecture ponctuelle des anciens signalements : ne publie ni ne
+        # supprime rien, écrit seulement un fichier local à relire.
+        self.scan_legacy = scan_legacy
         self.tree = discord.app_commands.CommandTree(self)
         self._self_check_done = False
 
@@ -141,6 +145,22 @@ class GrandLineBot(discord.Client):
 
         if self.check_only:
             log.info("Mode diagnostic : tout est vérifié, arrêt demandé (aucune modification sur Discord).")
+            await self.close()
+            return
+
+        if self.scan_legacy:
+            from pathlib import Path
+
+            from .legacy import scan_channel, summarise
+
+            log.info("Mode LECTURE des anciens signalements (aucune écriture sur Discord).")
+            try:
+                stats = await scan_channel(
+                    self, self.config.channels.tickets, Path("data/legacy_scan.json")
+                )
+                log.info("Résultat :\n%s", summarise(stats))
+            except Exception:
+                log.exception("La lecture a échoué.")
             await self.close()
             return
 
