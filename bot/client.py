@@ -10,7 +10,9 @@ jour où quelqu'un pose une coche verte.
 from __future__ import annotations
 
 import logging
+import socket
 
+import aiohttp
 import discord
 
 from .config import Config
@@ -75,8 +77,21 @@ def build_intents() -> discord.Intents:
 
 
 class GrandLineBot(discord.Client):
-    def __init__(self, config: Config, db: Database, *, check_only: bool = False) -> None:
-        super().__init__(intents=build_intents())
+    def __init__(
+        self,
+        config: Config,
+        db: Database,
+        *,
+        check_only: bool = False,
+        force_ipv4: bool = False,
+    ) -> None:
+        # Sur un réseau où l'IPv6 est annoncée mais ne répond pas, la résolution
+        # DNS de Discord se bloque une dizaine de secondes avant d'abandonner.
+        # Discord, lui, détruit un jeton d'interaction au bout de 3 secondes :
+        # le bouton devient inutilisable. Forcer l'IPv4 contourne le trou noir.
+        # Inutile en production — le VPS répond en quelques millisecondes.
+        connector = aiohttp.TCPConnector(family=socket.AF_INET) if force_ipv4 else None
+        super().__init__(intents=build_intents(), connector=connector)
         self.config = config
         self.db = db
         # En mode « check_only », le bot se connecte, vérifie son environnement,

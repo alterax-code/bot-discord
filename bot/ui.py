@@ -49,10 +49,16 @@ class _TicketModal(discord.ui.Modal):
             "Ton signalement n'a **pas** été perdu s'il a déjà été écrit : "
             "préviens l'équipe technique en citant l'heure exacte."
         )
-        if interaction.response.is_done():
-            await interaction.followup.send(message, ephemeral=True)
-        else:
-            await interaction.response.send_message(message, ephemeral=True)
+        # Prévenir l'utilisateur est un « au mieux » : si l'interaction a
+        # expiré, tenter de répondre lève une seconde exception qui masquerait
+        # la première dans les journaux.
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(message, ephemeral=True)
+            else:
+                await interaction.response.send_message(message, ephemeral=True)
+        except discord.HTTPException:
+            log.warning("Impossible d'avertir l'utilisateur : l'interaction avait déjà expiré.")
 
 
 class BugModal(_TicketModal, title="Signaler un bug"):

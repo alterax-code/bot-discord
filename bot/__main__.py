@@ -36,10 +36,14 @@ async def _run(check_only: bool) -> int:
     if check_only:
         log.info("Mode DIAGNOSTIC : vérification de l'environnement puis arrêt.")
 
+    force_ipv4 = os.environ.get("FORCE_IPV4", "").strip().lower() in {"1", "true", "yes", "oui"}
+    if force_ipv4:
+        log.info("IPv4 forcée : l'IPv6 de cette machine est contournée.")
+
     db = Database(Path(os.environ.get("DATA_DIR", "data")) / "grandline.db")
     await db.connect()
 
-    bot = GrandLineBot(config, db, check_only=check_only)
+    bot = GrandLineBot(config, db, check_only=check_only, force_ipv4=force_ipv4)
     try:
         await bot.start(config.token)
     except discord.LoginFailure:

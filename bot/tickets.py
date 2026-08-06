@@ -87,13 +87,42 @@ class TicketService:
 
     # -- création d'un ticket ---------------------------------------------
 
+    async def _notify(self, interaction: discord.Interaction, acknowledged: bool, text: str) -> None:
+        """Confirmation privée au joueur. JAMAIS bloquante.
+
+        Si l'interaction a expiré, le ticket existe quand même — et c'est cela
+        qui compte. Perdre un message de politesse est sans conséquence,
+        perdre un signalement ne l'est pas.
+        """
+        if not acknowledged:
+            return
+        try:
+            await interaction.followup.send(text, ephemeral=True)
+        except discord.HTTPException as exc:
+            log.warning("Confirmation non délivrée (%s) — le ticket, lui, est intact.", exc)
+
     async def create_from_modal(
         self, interaction: discord.Interaction, kind: str, fields: dict[str, str]
     ) -> None:
+        # 1. Accuser réception AVANT toute autre chose.
+        #    Discord détruit le jeton d'interaction au bout de 3 secondes.
+        #    L'accusé de réception ouvre une fenêtre de 15 minutes pour répondre,
+        #    ce qui rend le reste insensible à une latence réseau passagère.
+        acknowledged = False
+        try:
+            await interaction.response.defer(ephemeral=True, thinking=True)
+            acknowledged = True
+        except discord.HTTPException as exc:
+            log.warning(
+                "Accusé de réception impossible (%s). Le ticket sera tout de même "
+                "enregistré et publié ; seule la confirmation privée sera perdue.",
+                exc,
+            )
+
         title = fields.get(TITLE_KEY, "").strip() or "(sans titre)"
         author = interaction.user
 
-        # 1. Écrire d'abord. Tout le reste peut échouer sans rien perdre.
+        # 2. Écrire. Tout ce qui suit peut échouer sans rien perdre.
         ticket_id = await self.db.create_ticket(
             kind=kind,
             title=title,
@@ -103,38 +132,34 @@ class TicketService:
         )
         log.info("Ticket #%d créé en base (%s) par %s.", ticket_id, kind, author)
 
-        # Réponse immédiate : Discord ferme l'interaction au bout de 3 secondes.
-        await interaction.response.send_message(
-            f"Merci — ton signalement a été enregistré sous le **#{ticket_id}**. "
-            "L'équipe technique le suivra dans ce salon.",
-            ephemeral=True,
-        )
-
-        # 2. Publier.
+        # 3. Publier — y compris si l'accusé de réception a échoué.
         try:
             channel = self.tickets_channel()
-            message = await channel.send(embed=self.build_embed(ticket_id, kind, title, fields, author))
+            message = await channel.send(
+                embed=self.build_embed(ticket_id, kind, title, fields, author)
+            )
         except (discord.HTTPException, RuntimeError):
             log.exception(
-                "Ticket #%d écrit en base mais NON publié. Il reste rattrapable "
-                "(il apparaîtra comme orphelin au prochain démarrage).",
+                "Ticket #%d écrit en base mais NON publié. Son contenu est intact ; "
+                "il ressortira comme orphelin au prochain démarrage.",
                 ticket_id,
             )
-            await interaction.followup.send(
+            await self._notify(
+                interaction,
+                acknowledged,
                 f"⚠️ Le ticket **#{ticket_id}** est bien enregistré, mais sa publication "
                 "a échoué. Rien n'est perdu — préviens l'équipe technique.",
-                ephemeral=True,
             )
             return
 
         await self.db.attach_message(ticket_id, message.id)
 
-        # 3. L'auteur est le découvreur : il compte d'office sur la croix rouge.
+        # 4. L'auteur est le découvreur : il compte d'office sur la croix rouge.
         await self.db.add_participant(
             ticket_id, self.config.reactions.reported, author.id, author.display_name
         )
 
-        # 4. Les trois réactions de statut, dans l'ordre.
+        # 5. Les trois réactions de statut, dans l'ordre.
         for emoji in self.config.reactions.all:
             try:
                 await message.add_reaction(emoji)
@@ -142,6 +167,12 @@ class TicketService:
                 log.warning("Réaction %s non posée sur le ticket #%d : %s", emoji, ticket_id, exc)
 
         log.info("Ticket #%d publié (message %s).", ticket_id, message.id)
+        await self._notify(
+            interaction,
+            acknowledged,
+            f"Merci — ton signalement a été enregistré sous le **#{ticket_id}**. "
+            "L'équipe technique le suivra dans ce salon.",
+        )
 
     # -- rendu -------------------------------------------------------------
 
