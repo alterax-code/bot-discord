@@ -41,7 +41,21 @@ async def _run(check_only: bool, scan_legacy: bool = False, oneshot: str | None 
         log.info("IPv4 forcée : l'IPv6 de cette machine est contournée.")
 
     db = Database(Path(os.environ.get("DATA_DIR", "data")) / "grandline.db")
-    await db.connect()
+    try:
+        await db.connect()
+    except Exception:
+        # Sans ce filet, une base illisible laisse le fil d'exécution
+        # d'aiosqlite ouvert et le processus ne se termine JAMAIS : il pend.
+        # Or un conteneur figé n'est pas relancé par Docker — il n'est pas
+        # « tombé ». On préfère mourir franchement.
+        log.exception(
+            "Impossible d'ouvrir la base %s. Arrêt volontaire du processus.\n"
+            "  Cause la plus fréquente : le dossier de données n'appartient pas "
+            "à l'utilisateur qui fait tourner le bot.",
+            db.path,
+        )
+        await db.close()
+        return 6
 
     bot = GrandLineBot(
         config, db, check_only=check_only, force_ipv4=force_ipv4,

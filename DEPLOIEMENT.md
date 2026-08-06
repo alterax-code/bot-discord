@@ -69,6 +69,7 @@ puis s'arrête. Son code de sortie dit ce qui ne va pas :
 | 3 | Jeton refusé par Discord |
 | 4 | Intent privilégié manquant |
 | 5 | Salons ou permissions incorrects |
+| 6 | Base illisible — le plus souvent un problème de propriétaire sur `data/` |
 
 ---
 
