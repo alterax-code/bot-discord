@@ -9,6 +9,19 @@ services:
     # à la main — sinon impossible de le laisser éteint volontairement.
     restart: unless-stopped
 
+    # Le conteneur tourne sous l'identifiant de l'utilisateur HÔTE, et non
+    # sous le compte interne de l'image.
+    #
+    # Sans cela, le conteneur (uid 10001) ne peut pas écrire dans « data/ »,
+    # qui appartient à l'utilisateur du serveur (uid 1000) : la base s'ouvre
+    # en lecture seule et le bot refuse de démarrer.
+    #
+    # L'inverse — donner « data/ » à l'uid du conteneur — casserait la
+    # sauvegarde quotidienne, qui s'exécute sur l'hôte : une base SQLite en
+    # mode WAL exige un accès en écriture même pour être seulement lue.
+    # La panne ne se serait alors révélée que le jour d'une restauration.
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+
     # Le jeton vient d'ici. Ce fichier n'est pas dans le dépôt Git et n'entre
     # pas dans l'image : il vit uniquement sur le serveur.
     env_file:
