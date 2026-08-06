@@ -87,12 +87,24 @@ class GrandLineBot(discord.Client):
         force_ipv4: bool = False,
         scan_legacy: bool = False,
     ) -> None:
-        # Sur un réseau où l'IPv6 est annoncée mais ne répond pas, la résolution
-        # DNS de Discord se bloque une dizaine de secondes avant d'abandonner.
-        # Discord, lui, détruit un jeton d'interaction au bout de 3 secondes :
-        # le bouton devient inutilisable. Forcer l'IPv4 contourne le trou noir.
-        # Inutile en production — le VPS répond en quelques millisecondes.
-        connector = aiohttp.TCPConnector(family=socket.AF_INET) if force_ipv4 else None
+        # Discord détruit un jeton d'interaction au bout de 3 SECONDES. Tout ce
+        # qui peut retarder une requête au-delà rend un bouton inutilisable.
+        #
+        # Deux réglages, pour deux causes distinctes :
+        #
+        # - ttl_dns_cache : aiohttp oublie ses résolutions DNS toutes les 10
+        #   secondes par défaut. Deux clics espacés de plus de 10 secondes
+        #   repartent donc chacun d'une résolution à froid. On garde une heure.
+        #
+        # - family : sur un réseau où l'IPv6 est annoncée mais ne répond pas,
+        #   la résolution se bloque une dizaine de secondes avant d'abandonner.
+        #   Ne demander que l'IPv4 contourne ce trou noir.
+        #
+        # Le cache DNS est utile partout ; le forçage IPv4 ne sert qu'en local.
+        connector = aiohttp.TCPConnector(
+            family=socket.AF_INET if force_ipv4 else socket.AF_UNSPEC,
+            ttl_dns_cache=3600,
+        )
         super().__init__(intents=build_intents(), connector=connector)
         self.config = config
         self.db = db
