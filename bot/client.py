@@ -88,6 +88,7 @@ class GrandLineBot(discord.Client):
         check_only: bool = False,
         force_ipv4: bool = False,
         scan_legacy: bool = False,
+        oneshot: str | None = None,
     ) -> None:
         # Discord détruit un jeton d'interaction au bout de 3 SECONDES. Tout ce
         # qui peut retarder une requête au-delà rend un bouton inutilisable.
@@ -118,6 +119,8 @@ class GrandLineBot(discord.Client):
         # Lecture ponctuelle des anciens signalements : ne publie ni ne
         # supprime rien, écrit seulement un fichier local à relire.
         self.scan_legacy = scan_legacy
+        # Opération unique (« reset » ou « import ») puis arrêt.
+        self.oneshot = oneshot
         self.tree = discord.app_commands.CommandTree(self)
         self._self_check_done = False
 
@@ -201,6 +204,21 @@ class GrandLineBot(discord.Client):
                 "Leur contenu est intact en base.",
                 len(orphans), ", ".join(f"#{r['id']}" for r in orphans),
             )
+
+        # Opérations ponctuelles : elles ne doivent PAS être précédées d'une
+        # réconciliation, qui validerait des tickets qu'on s'apprête à effacer.
+        if self.oneshot:
+            from .importer import reset, run_import
+
+            try:
+                if self.oneshot == "reset":
+                    await reset(self)
+                elif self.oneshot == "import":
+                    await run_import(self)
+            except Exception:
+                log.exception("Opération « %s » en échec.", self.oneshot)
+            await self.close()
+            return
 
         # Ordre volontaire : d'abord finir ce qui avait été commencé, ensuite
         # seulement rattraper les réactions — lesquelles peuvent déclencher de

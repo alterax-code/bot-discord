@@ -188,19 +188,24 @@ class ArchiveService:
             except discord.HTTPException as exc:
                 log.error("Impossible de réécrire la page %d/%d du %s : %s", page_no, total, day, exc)
 
-    async def append(self, entry_id: int, day: str, page_no: int) -> None:
-        """Publie ou modifie la page qui accueille l'entrée qu'on vient de créer."""
+    async def ensure_page(self, day: str, page_no: int) -> None:
+        """Crée le message de la page s'il n'existe pas encore, sans réécrire le reste."""
         pages = await self.db.pages_for_day(day)
         existantes = {int(p["page_no"]) for p in pages}
+        if page_no in existantes:
+            return
+        canal = self.channel()
+        total = len(existantes) + 1
+        embed = self.page_embed(day, page_no, total, "*Page en cours d'écriture…*")
+        message = await canal.send(embed=embed)
+        await self.db.add_page(day, page_no, message.id)
+        log.info("Archive du %s : ouverture de la page %d (total %d).", day, page_no, total)
 
-        if page_no not in existantes:
-            # Nouvelle page : on la crée d'abord vide, puis refresh_pages
-            # remplira son contenu ET corrigera la pagination des précédentes.
-            canal = self.channel()
-            total = len(existantes) + 1
-            embed = self.page_embed(day, page_no, total, "*Page en cours d'écriture…*")
-            message = await canal.send(embed=embed)
-            await self.db.add_page(day, page_no, message.id)
-            log.info("Archive du %s : ouverture de la page %d (total %d).", day, page_no, total)
+    async def append(self, entry_id: int, day: str, page_no: int) -> None:
+        """Publie ou modifie la page qui accueille l'entrée qu'on vient de créer.
 
+        La réécriture qui suit remplit la nouvelle page ET corrige la
+        pagination affichée sur toutes les précédentes.
+        """
+        await self.ensure_page(day, page_no)
         await self.refresh_pages(day)

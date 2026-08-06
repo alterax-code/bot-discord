@@ -23,7 +23,7 @@ from .logging_setup import setup as setup_logging
 log = logging.getLogger("bot")
 
 
-async def _run(check_only: bool, scan_legacy: bool = False) -> int:
+async def _run(check_only: bool, scan_legacy: bool = False, oneshot: str | None = None) -> int:
     try:
         config = load(os.environ.get("CONFIG_PATH", "config.toml"))
     except ConfigError as exc:
@@ -44,7 +44,8 @@ async def _run(check_only: bool, scan_legacy: bool = False) -> int:
     await db.connect()
 
     bot = GrandLineBot(
-        config, db, check_only=check_only, force_ipv4=force_ipv4, scan_legacy=scan_legacy
+        config, db, check_only=check_only, force_ipv4=force_ipv4,
+        scan_legacy=scan_legacy, oneshot=oneshot,
     )
     try:
         await bot.start(config.token)
@@ -88,8 +89,9 @@ def main() -> int:
     args = sys.argv[1:]
     check_only = "--check" in args
     scan_legacy = "--scan-legacy" in args
+    oneshot = "reset" if "--reset" in args else ("import" if "--import" in args else None)
     try:
-        return asyncio.run(_run(check_only, scan_legacy))
+        return asyncio.run(_run(check_only, scan_legacy, oneshot))
     except KeyboardInterrupt:
         print("\nArrêt manuel.", file=sys.stderr)
         return 0

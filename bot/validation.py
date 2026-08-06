@@ -203,6 +203,53 @@ class ValidationService:
         await self.db.set_state(ticket_id, "done", message_id=None)
         log.info("Ticket #%d : cycle terminé.", ticket_id)
 
+    # -- import d'un signalement déjà traité -------------------------------
+
+    async def import_validated(self, ticket, validator_name: str) -> None:
+        """Archive et annonce un ancien signalement déjà validé.
+
+        Sans passer par le salon de travail : ces points-là sont faits depuis
+        longtemps, les afficher comme « à faire » serait faux. La réécriture
+        des pages est laissée à l'appelant, qui la fera une seule fois pour
+        tout le lot plutôt qu'une fois par entrée.
+        """
+        ticket_id = int(ticket["id"])
+        participants = await self.db.participants(ticket_id)
+        snapshot = {
+            "kind": ticket["kind"],
+            "title": ticket["title"],
+            "fields": json.loads(ticket["fields_json"]),
+            "author_name": ticket["author_name"],
+            "author_id": ticket["author_id"],
+            "participants": participants,
+            "created_at": ticket["created_at"],
+        }
+
+        day = self.archive.day_key()
+        provisoire = {
+            "ticket_id": ticket_id,
+            "snapshot_json": json.dumps(snapshot, ensure_ascii=False),
+            "cancelled": 0,
+            "validated_at": now_iso(),
+            "validated_by_name": validator_name,
+            "cancelled_at": None,
+            "cancelled_by_name": None,
+        }
+        page_no = await self.archive.choose_page(day, self.archive.render_entry(provisoire))
+        entry_id = await self.db.create_entry(
+            ticket_id=ticket_id, day=day, page_no=page_no,
+            validated_by=None, validated_by_name=validator_name, snapshot=snapshot,
+        )
+        if entry_id is None:
+            log.warning("Ticket #%d : entrée d'archive déjà présente, import ignoré.", ticket_id)
+            return
+
+        await self.archive.ensure_page(day, page_no)
+        await self.db.set_state(ticket_id, "archived", validated_at=now_iso())
+        await self._publish(ticket_id, snapshot)
+        await self.db.set_state(ticket_id, "done", message_id=None)
+        log.info("Importé #%d — archivé (page %d) et annoncé.", ticket_id, page_no)
+
     # -- reprise après coupure --------------------------------------------
 
     async def resume(self) -> None:
