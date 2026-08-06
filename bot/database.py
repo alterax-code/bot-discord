@@ -14,12 +14,23 @@ Deux réglages comptent :
 
 from __future__ import annotations
 
+import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 import aiosqlite
 
 log = logging.getLogger(__name__)
+
+
+def now_iso() -> str:
+    """Horodatage de stockage, toujours en UTC.
+
+    Les dates sont stockées en UTC et converties à l'affichage : c'est la seule
+    façon qu'un changement d'heure d'été ne réordonne pas l'historique.
+    """
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 SCHEMA_VERSION = 1
 
@@ -158,6 +169,94 @@ class Database:
     async def _fetchone(self, sql: str, params: tuple = ()) -> aiosqlite.Row | None:
         async with self.conn.execute(sql, params) as cur:
             return await cur.fetchone()
+
+    async def _fetchall(self, sql: str, params: tuple = ()) -> list[aiosqlite.Row]:
+        async with self.conn.execute(sql, params) as cur:
+            return list(await cur.fetchall())
+
+    # -- le message permanent à boutons ------------------------------------
+
+    async def get_panel(self) -> aiosqlite.Row | None:
+        return await self._fetchone("SELECT channel_id, message_id FROM panel WHERE id = 1")
+
+    async def save_panel(self, channel_id: int, message_id: int) -> None:
+        await self.conn.execute(
+            "INSERT INTO panel(id, channel_id, message_id, updated_at) VALUES (1, ?, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET channel_id = ?, message_id = ?, updated_at = ?",
+            (channel_id, message_id, now_iso(), channel_id, message_id, now_iso()),
+        )
+        await self.conn.commit()
+
+    # -- tickets -----------------------------------------------------------
+
+    async def create_ticket(
+        self, *, kind: str, title: str, fields: dict[str, str], author_id: int, author_name: str
+    ) -> int:
+        """Crée le ticket EN BASE, avant toute publication sur Discord.
+
+        L'ordre compte : si Discord échoue juste après, le contenu saisi par
+        le joueur est déjà sauvé et le ticket est rattrapable.
+        """
+        cur = await self.conn.execute(
+            "INSERT INTO tickets(kind, title, fields_json, author_id, author_name, state, created_at) "
+            "VALUES (?, ?, ?, ?, ?, 'open', ?)",
+            (kind, title, json.dumps(fields, ensure_ascii=False), author_id, author_name, now_iso()),
+        )
+        await self.conn.commit()
+        return int(cur.lastrowid)
+
+    async def attach_message(self, ticket_id: int, message_id: int) -> None:
+        await self.conn.execute(
+            "UPDATE tickets SET message_id = ? WHERE id = ?", (message_id, ticket_id)
+        )
+        await self.conn.commit()
+
+    async def get_ticket(self, ticket_id: int) -> aiosqlite.Row | None:
+        return await self._fetchone("SELECT * FROM tickets WHERE id = ?", (ticket_id,))
+
+    async def get_ticket_by_message(self, message_id: int) -> aiosqlite.Row | None:
+        return await self._fetchone("SELECT * FROM tickets WHERE message_id = ?", (message_id,))
+
+    async def open_tickets(self) -> list[aiosqlite.Row]:
+        """Les tickets encore présents dans le salon, pour la réconciliation au démarrage."""
+        return await self._fetchall(
+            "SELECT * FROM tickets WHERE state = 'open' AND message_id IS NOT NULL ORDER BY id"
+        )
+
+    async def orphan_tickets(self) -> list[aiosqlite.Row]:
+        """Tickets créés en base mais jamais publiés : une panne a interrompu la création."""
+        return await self._fetchall(
+            "SELECT * FROM tickets WHERE state = 'open' AND message_id IS NULL ORDER BY id"
+        )
+
+    # -- participants ------------------------------------------------------
+
+    async def add_participant(
+        self, ticket_id: int, emoji: str, user_id: int, user_name: str
+    ) -> bool:
+        """Enregistre une participation. Rend True si elle est nouvelle.
+
+        Cumulatif et jamais retiré : conformément à la spécification, ôter une
+        réaction ne supprime pas la trace de qui l'avait posée.
+        """
+        cur = await self.conn.execute(
+            "INSERT OR IGNORE INTO participants(ticket_id, emoji, user_id, user_name, added_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (ticket_id, emoji, user_id, user_name, now_iso()),
+        )
+        await self.conn.commit()
+        return cur.rowcount > 0
+
+    async def participants(self, ticket_id: int) -> dict[str, list[str]]:
+        """Les noms des participants, groupés par émoji, dans l'ordre d'arrivée."""
+        rows = await self._fetchall(
+            "SELECT emoji, user_name FROM participants WHERE ticket_id = ? ORDER BY added_at, rowid",
+            (ticket_id,),
+        )
+        out: dict[str, list[str]] = {}
+        for row in rows:
+            out.setdefault(row["emoji"], []).append(row["user_name"])
+        return out
 
     async def close(self) -> None:
         if self._conn is not None:

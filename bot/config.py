@@ -58,6 +58,22 @@ class Archive:
 
 
 @dataclass(frozen=True, slots=True)
+class Display:
+    bug_label: str
+    bug_color: int
+    feature_label: str
+    feature_color: int
+    panel_title: str
+    panel_text: str
+
+    def label(self, kind: str) -> str:
+        return self.bug_label if kind == "bug" else self.feature_label
+
+    def color(self, kind: str) -> int:
+        return self.bug_color if kind == "bug" else self.feature_color
+
+
+@dataclass(frozen=True, slots=True)
 class Behaviour:
     pin_panel: bool
 
@@ -72,6 +88,7 @@ class Config:
     reactions: Reactions
     publication: Publication
     archive: Archive
+    display: Display
     behaviour: Behaviour
 
     @property
@@ -101,6 +118,21 @@ def _section(data: dict, name: str) -> dict:
     if name not in data or not isinstance(data[name], dict):
         raise ConfigError(f"config.toml : la section [{name}] est absente.")
     return data[name]
+
+
+def _parse_color(table: dict, key: str) -> int:
+    """Lit une couleur au format « #RRGGBB » et la rend sous forme d'entier."""
+    raw = _require(table, "display", key, str).strip().lstrip("#")
+    try:
+        value = int(raw, 16)
+    except ValueError:
+        raise ConfigError(
+            f"config.toml : [display].{key} doit être une couleur hexadécimale, "
+            f'par exemple "#E74C3C" — reçu "{raw}".'
+        ) from None
+    if not 0 <= value <= 0xFFFFFF:
+        raise ConfigError(f"config.toml : [display].{key} sort de la plage des couleurs.")
+    return value
 
 
 def load(config_path: Path | str = "config.toml", *, env_file: str | None = ".env") -> Config:
@@ -192,6 +224,16 @@ def load(config_path: Path | str = "config.toml", *, env_file: str | None = ".en
             "et ne pas dépasser max_page_chars — sinon une entrée ne rentrerait dans aucune page."
         )
 
+    dis = _section(data, "display")
+    display = Display(
+        bug_label=_require(dis, "display", "bug_label", str),
+        bug_color=_parse_color(dis, "bug_color"),
+        feature_label=_require(dis, "display", "feature_label", str),
+        feature_color=_parse_color(dis, "feature_color"),
+        panel_title=_require(dis, "display", "panel_title", str),
+        panel_text=_require(dis, "display", "panel_text", str).strip(),
+    )
+
     beh = data.get("behaviour", {})
     behaviour = Behaviour(pin_panel=bool(beh.get("pin_panel", True)))
 
@@ -209,5 +251,6 @@ def load(config_path: Path | str = "config.toml", *, env_file: str | None = ".en
             max_page_chars=max_page,
             max_entry_chars=max_entry,
         ),
+        display=display,
         behaviour=behaviour,
     )

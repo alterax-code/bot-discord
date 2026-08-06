@@ -15,6 +15,8 @@ import discord
 
 from .config import Config
 from .database import Database
+from .tickets import TicketService
+from .ui import PanelView
 
 log = logging.getLogger(__name__)
 
@@ -85,11 +87,18 @@ class GrandLineBot(discord.Client):
         self.tree = discord.app_commands.CommandTree(self)
         self._self_check_done = False
 
+        self.tickets = TicketService(self, config, db)
+        self.panel_view = PanelView(self.tickets)
+
     # -- cycle de vie ------------------------------------------------------
 
     async def setup_hook(self) -> None:
         """Appelé une seule fois, avant la connexion à la passerelle."""
-        log.info("Préparation du bot (version du schéma de données et vues persistantes).")
+        # Enregistrer la vue AVANT la connexion : c'est ce qui permet aux
+        # boutons d'un message publié il y a des semaines de redevenir actifs
+        # après un redémarrage.
+        self.add_view(self.panel_view)
+        log.info("Vue persistante enregistrée : les boutons survivent aux redémarrages.")
 
     async def on_ready(self) -> None:
         # on_ready peut se déclencher plusieurs fois (reconnexions réseau).
@@ -116,11 +125,23 @@ class GrandLineBot(discord.Client):
         )
 
         if self.check_only:
-            log.info("Mode diagnostic : tout est vérifié, arrêt demandé.")
+            log.info("Mode diagnostic : tout est vérifié, arrêt demandé (aucune modification sur Discord).")
             await self.close()
             return
 
-        log.info("Socle opérationnel. En attente des incréments suivants.")
+        # Un ticket écrit en base mais jamais publié signale qu'une panne a
+        # interrompu une création. On le signale plutôt que de le laisser
+        # dormir silencieusement.
+        orphans = await self.db.orphan_tickets()
+        if orphans:
+            log.warning(
+                "%d ticket(s) enregistré(s) mais jamais publié(s) : %s. "
+                "Leur contenu est intact en base.",
+                len(orphans), ", ".join(f"#{r['id']}" for r in orphans),
+            )
+
+        await self.tickets.ensure_panel(self.panel_view)
+        log.info("Bot opérationnel : les joueurs peuvent ouvrir des tickets.")
 
     # -- autodiagnostic ----------------------------------------------------
 

@@ -63,6 +63,27 @@ max_page_chars = 3600
 max_entry_chars = 1200
 
 
+[display]
+# Apparence des tickets. Le type est visible directement dans le message
+# (en-tête et couleur), jamais sous forme de réaction.
+bug_label = "🐛 Bug signalé"
+bug_color = "#E74C3C"
+feature_label = "✨ Ajout proposé"
+feature_color = "#3498DB"
+
+# Le message permanent à deux boutons, en tête du salon des tickets.
+panel_title = "Signaler un bug ou proposer un ajout"
+panel_text = """
+Un souci en jeu ? Une idée pour le serveur ? Utilise les boutons ci-dessous.
+
+**🐛 Signaler un bug** — quelque chose ne fonctionne pas comme prévu.
+**✨ Proposer un ajout** — une fonctionnalité que tu aimerais voir arriver.
+
+Ton signalement est publié ici avec ton nom, puis suivi par l'équipe technique :
+❌ signalé · ⚠️ en cours de correction · ✅ testé et validé en ligne
+"""
+
+
 [behaviour]
 # Le message permanent à boutons est-il épinglé automatiquement ?
 pin_panel = true
