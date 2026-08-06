@@ -35,6 +35,15 @@ def setup(level: str, tz: ZoneInfo) -> None:
     if not isinstance(numeric, int):
         numeric = logging.INFO
 
+    # Sous Windows, Python encode la sortie dans la page de codes hérités du
+    # système (cp1252) : les accents ressortent en caractères illisibles dès
+    # que le terminal, lui, lit de l'UTF-8. On force l'UTF-8 des deux côtés
+    # pour que les journaux soient lisibles ici comme dans le conteneur.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError):  # flux déjà remplacé ou non reconfigurable
+        pass
+
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(
         _LocalFormatter("%(asctime)s  %(levelname)-8s %(name)-24s %(message)s", tz)

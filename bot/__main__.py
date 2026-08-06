@@ -23,7 +23,7 @@ from .logging_setup import setup as setup_logging
 log = logging.getLogger("bot")
 
 
-async def _run() -> int:
+async def _run(check_only: bool) -> int:
     try:
         config = load(os.environ.get("CONFIG_PATH", "config.toml"))
     except ConfigError as exc:
@@ -33,11 +33,13 @@ async def _run() -> int:
     setup_logging(config.log_level, config.archive.timezone)
     log.info("Bot de tickets Grand Line RP v%s", __version__)
     log.info("Fuseau de découpage de l'archive : %s", config.archive.timezone_name)
+    if check_only:
+        log.info("Mode DIAGNOSTIC : vérification de l'environnement puis arrêt.")
 
     db = Database(Path(os.environ.get("DATA_DIR", "data")) / "grandline.db")
     await db.connect()
 
-    bot = GrandLineBot(config, db)
+    bot = GrandLineBot(config, db, check_only=check_only)
     try:
         await bot.start(config.token)
     except discord.LoginFailure:
@@ -62,12 +64,18 @@ async def _run() -> int:
             await bot.close()
         await db.close()
 
+    # En mode diagnostic, le code de sortie EST le verdict : 0 si tout va bien,
+    # 5 sinon. Un script de déploiement peut donc s'arrêter avant de casser
+    # la production.
+    if check_only and not bot.check_passed:
+        return 5
     return 0
 
 
 def main() -> int:
+    check_only = "--check" in sys.argv[1:]
     try:
-        return asyncio.run(_run())
+        return asyncio.run(_run(check_only))
     except KeyboardInterrupt:
         print("\nArrêt manuel.", file=sys.stderr)
         return 0

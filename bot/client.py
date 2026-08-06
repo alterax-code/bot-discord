@@ -73,10 +73,15 @@ def build_intents() -> discord.Intents:
 
 
 class GrandLineBot(discord.Client):
-    def __init__(self, config: Config, db: Database) -> None:
+    def __init__(self, config: Config, db: Database, *, check_only: bool = False) -> None:
         super().__init__(intents=build_intents())
         self.config = config
         self.db = db
+        # En mode « check_only », le bot se connecte, vérifie son environnement,
+        # rend son verdict et s'arrête. Sert à valider une configuration avant
+        # de relancer le service en production.
+        self.check_only = check_only
+        self.check_passed = False
         self.tree = discord.app_commands.CommandTree(self)
         self._self_check_done = False
 
@@ -102,11 +107,19 @@ class GrandLineBot(discord.Client):
             await self.close()
             return
 
+        self.check_passed = True
+
         counts = await self.db.healthcheck()
         log.info(
             "Base : %d ticket(s), %d participation(s), %d page(s) d'archive, %d incident(s).",
             counts["tickets"], counts["participants"], counts["archive_pages"], counts["incidents"],
         )
+
+        if self.check_only:
+            log.info("Mode diagnostic : tout est vérifié, arrêt demandé.")
+            await self.close()
+            return
+
         log.info("Socle opérationnel. En attente des incréments suivants.")
 
     # -- autodiagnostic ----------------------------------------------------
