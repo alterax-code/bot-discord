@@ -22,6 +22,7 @@ from .reactions import ReactionTracker
 from .tickets import TicketService
 from .ui import ArchiveView, PanelView
 from .validation import ValidationService
+from .whitelist import StaffSync
 
 log = logging.getLogger(__name__)
 
@@ -128,6 +129,8 @@ class GrandLineBot(discord.Client):
         self.archive = ArchiveService(self, config, db)
         self.validation = ValidationService(self, config, db, self.tickets, self.archive)
         self.reactions = ReactionTracker(self, config, db)
+        # Les rôles staff → le portail → la whitelist du serveur de jeu.
+        self.whitelist = StaffSync(self, config)
 
         # Une coche verte autorisée déclenche la chaîne de validation.
         self.reactions.on_validated = self.validation.validate
@@ -231,7 +234,21 @@ class GrandLineBot(discord.Client):
         await self.tickets.ensure_panel(self.panel_view)
         log.info("Bot opérationnel : les joueurs peuvent ouvrir des tickets.")
 
+        # En dernier : la whitelist ne conditionne pas les tickets, et un
+        # portail absent ne doit pas retarder le reste.
+        await self.whitelist.demarrer()
+
     # -- événements --------------------------------------------------------
+
+    async def on_member_update(self, before: discord.Member, after: discord.Member) -> None:
+        # Un rôle staff posé ou retiré : la liste repart au portail (regroupée).
+        if after.guild.id == self.config.guild_id and self.whitelist.roles_staff_changent(before, after):
+            self.whitelist.planifier(f"rôle de {after.display_name}")
+
+    async def on_member_remove(self, member: discord.Member) -> None:
+        # Un membre parti n'est plus staff, quel que soit le rôle qu'il avait.
+        if member.guild.id == self.config.guild_id:
+            self.whitelist.planifier(f"départ de {member.display_name}")
 
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
         # « raw » et non l'événement classique : celui-ci fonctionne aussi sur

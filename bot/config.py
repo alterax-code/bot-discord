@@ -79,6 +79,20 @@ class Behaviour:
 
 
 @dataclass(frozen=True, slots=True)
+class Whitelist:
+    """Rôles staff → portail. Désactivée si le secret ou les rôles manquent :
+    le bot de tickets doit tourner même sans portail."""
+    staff_roles: frozenset[int]
+    portail_url: str
+    secret: str
+    resync_seconds: int
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.staff_roles and self.portail_url and self.secret)
+
+
+@dataclass(frozen=True, slots=True)
 class Config:
     token: str
     log_level: str
@@ -90,6 +104,7 @@ class Config:
     archive: Archive
     display: Display
     behaviour: Behaviour
+    whitelist: Whitelist
 
     @property
     def channel_ids(self) -> dict[str, int]:
@@ -237,6 +252,25 @@ def load(config_path: Path | str = "config.toml", *, env_file: str | None = ".en
     beh = data.get("behaviour", {})
     behaviour = Behaviour(pin_panel=bool(beh.get("pin_panel", True)))
 
+    # --- whitelist : section optionnelle, secret dans l'environnement ---
+    wl = data.get("whitelist", {})
+    if not isinstance(wl, dict):
+        raise ConfigError("config.toml : [whitelist] doit être une section.")
+    staff_roles = wl.get("staff_roles", [])
+    if not isinstance(staff_roles, list) or not all(
+        isinstance(r, int) and not isinstance(r, bool) for r in staff_roles
+    ):
+        raise ConfigError("config.toml : [whitelist].staff_roles ne doit contenir que des identifiants numériques.")
+    resync = wl.get("resync_seconds", 600)
+    if not isinstance(resync, int) or isinstance(resync, bool) or resync < 60:
+        raise ConfigError("config.toml : [whitelist].resync_seconds doit être un entier ≥ 60.")
+    whitelist = Whitelist(
+        staff_roles=frozenset(staff_roles),
+        portail_url=str(wl.get("portail_url", "")).strip(),
+        secret=os.environ.get("PORTAIL_SECRET", "").strip(),
+        resync_seconds=resync,
+    )
+
     return Config(
         token=token,
         log_level=log_level,
@@ -253,4 +287,5 @@ def load(config_path: Path | str = "config.toml", *, env_file: str | None = ".en
         ),
         display=display,
         behaviour=behaviour,
+        whitelist=whitelist,
     )

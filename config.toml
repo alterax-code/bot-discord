@@ -87,3 +87,43 @@ Ton signalement est publié ici avec ton nom, puis suivi par l'équipe technique
 [behaviour]
 # Le message permanent à boutons est-il épinglé automatiquement ?
 pin_panel = true
+
+
+[whitelist]
+# Whitelist du serveur de jeu (décision Lucas, 16 septembre 2026) : tout membre
+# qui porte l'un de ces rôles est autorisé à entrer en jeu, à condition d'avoir
+# lié son Discord à son compte Steam sur le portail. Le bot envoie la liste des
+# membres concernés au portail (adresse ci-dessous, réseau Docker du VPS, jamais
+# Internet) à chaque changement de rôle et toutes les resync_seconds secondes.
+# Le secret d'accès au portail est PORTAIL_SECRET dans .env.
+portail_url = "http://grandline-portail:3000"
+resync_seconds = 600
+staff_roles = [
+  1533804625206186055,  # 🔑 passe-all
+  1548668864009601095,  # 🔱 Fondateurs
+  1534727680463863979,  # ✯ Direction ✯
+  1524700663924260942,  # 👑 Doyen
+  1532717004761469099,  # 🧭 Coordinateur
+  1544738329998925914,  # La Fée des discord
+  1532718750950752387,  # ✯ Gérance ✯
+  1532558047539630130,  # ⚓ Gérant Staff
+  1532716821747204260,  # 🏴‍☠️ Gérant RP
+  1532716822451851314,  # 📯 Gérant Community Manager
+  1532716823655616594,  # 🎨 Gérant Graphiste
+  1534725268814565456,  # 🧭 Gérant Mappeur
+  1532719392536658130,  # ✯ Haut Staff ✯
+  1524700663924260939,  # 🔧 Admin
+  1532717002899062975,  # 🎲 MJ
+  1536479115203444837,  # ⚓ Lead Marine
+  1544741566541733898,  # 🏴‍☠️ Lead Pirate
+  1544749503880503306,  # 🔨 Responsable Buildeur
+  1524700663924260940,  # ✯ Staff ✯
+  1532716885882441920,  # ⚔️ Modérateur +
+  1524700663924260938,  # 🛡️ Modérateur
+  1534725363194921071,  # 🖋️ Lore
+  1532717004278988820,  # 🎨 Graphiste
+  1532717003448651897,  # ⚖️ Equilibrage
+  1524700663916007490,  # 🎉 Animateur
+  1544745832593756251,  # 📯 Community Manager
+  1544749222622928916,  # 🔨 Buildeur
+]
