@@ -102,6 +102,7 @@ class Sanctions:
 class Support:
     """Tickets de support unifiés Discord ↔ site. Désactivé si la section
     manque ou si le portail n'est pas configuré ([whitelist])."""
+    enabled: bool
     panel_channel: int
     category: int
     transcript_channel: int
@@ -110,7 +111,7 @@ class Support:
 
     @property
     def configured(self) -> bool:
-        return bool(self.panel_channel and self.category and self.transcript_channel and self.categories)
+        return bool(self.enabled and self.panel_channel and self.category and self.transcript_channel and self.categories)
 
 
 @dataclass(frozen=True, slots=True)
@@ -321,6 +322,7 @@ def load(config_path: Path | str = "config.toml", *, env_file: str | None = ".en
     if not isinstance(poll, int) or isinstance(poll, bool) or poll < 5:
         raise ConfigError("config.toml : [support].poll_seconds doit être un entier ≥ 5.")
     support = Support(
+        enabled=bool(su.get("enabled", False)),
         panel_channel=_id("panel_channel"),
         category=_id("category"),
         transcript_channel=_id("transcript_channel"),

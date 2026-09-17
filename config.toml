@@ -155,6 +155,11 @@ maitres = [
 # messages). À la fermeture, une transcription part dans le salon transcript
 # et le salon du ticket est supprimé : l'historique complet vit sur le site.
 # Même portail et même secret que [whitelist] ; désactivé sans eux.
+#
+# EN VEILLE depuis le 17 septembre 2026 (décision Lucas) : le staff garde le
+# système de tickets déjà en place sur Discord. Tout le code reste ; passer
+# enabled à true (et TICKETS_ACTIFS=1 côté portail) rallume l'ensemble.
+enabled = false
 panel_channel = 1524700664582901786        # #🎫〡support
 category = 1524700665044271186             # ✦ TICKETS ✦
 transcript_channel = 1535397307225346140   # #transcript
