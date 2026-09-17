@@ -93,6 +93,12 @@ class Whitelist:
 
 
 @dataclass(frozen=True, slots=True)
+class Sanctions:
+    """Miroir des bans Discord → jeu. Les maîtres ne sont jamais transmis."""
+    maitres: frozenset[int]
+
+
+@dataclass(frozen=True, slots=True)
 class Config:
     token: str
     log_level: str
@@ -105,6 +111,7 @@ class Config:
     display: Display
     behaviour: Behaviour
     whitelist: Whitelist
+    sanctions: Sanctions
 
     @property
     def channel_ids(self) -> dict[str, int]:
@@ -271,6 +278,15 @@ def load(config_path: Path | str = "config.toml", *, env_file: str | None = ".en
         resync_seconds=resync,
     )
 
+    # --- sanctions : les maîtres, jamais transmis au jeu ---
+    sa = data.get("sanctions", {})
+    if not isinstance(sa, dict):
+        raise ConfigError("config.toml : [sanctions] doit être une section.")
+    maitres = sa.get("maitres", [])
+    if not isinstance(maitres, list) or not all(isinstance(m, int) and not isinstance(m, bool) for m in maitres):
+        raise ConfigError("config.toml : [sanctions].maitres ne doit contenir que des identifiants numériques.")
+    sanctions = Sanctions(maitres=frozenset(maitres))
+
     return Config(
         token=token,
         log_level=log_level,
@@ -288,4 +304,5 @@ def load(config_path: Path | str = "config.toml", *, env_file: str | None = ".en
         display=display,
         behaviour=behaviour,
         whitelist=whitelist,
+        sanctions=sanctions,
     )

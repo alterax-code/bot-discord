@@ -19,6 +19,7 @@ from .archive import ArchiveService
 from .config import Config
 from .database import Database
 from .reactions import ReactionTracker
+from .sanctions import BanSync
 from .tickets import TicketService
 from .ui import ArchiveView, PanelView
 from .validation import ValidationService
@@ -77,6 +78,7 @@ def build_intents() -> discord.Intents:
     intents.guild_messages = True    # détecter la suppression manuelle d'un ticket
     intents.guild_reactions = True   # le cœur du suivi : les réactions
     intents.members = True           # PRIVILÉGIÉ : résoudre les rôles d'un réacteur
+    intents.moderation = True        # bans posés et levés → miroir vers le jeu (bot/sanctions.py)
     return intents
 
 
@@ -131,6 +133,8 @@ class GrandLineBot(discord.Client):
         self.reactions = ReactionTracker(self, config, db)
         # Les rôles staff → le portail → la whitelist du serveur de jeu.
         self.whitelist = StaffSync(self, config)
+        # Les bans Discord → le portail → un ban FAdmin en jeu.
+        self.sanctions = BanSync(self, config)
 
         # Une coche verte autorisée déclenche la chaîne de validation.
         self.reactions.on_validated = self.validation.validate
@@ -237,8 +241,15 @@ class GrandLineBot(discord.Client):
         # En dernier : la whitelist ne conditionne pas les tickets, et un
         # portail absent ne doit pas retarder le reste.
         await self.whitelist.demarrer()
+        await self.sanctions.demarrer()
 
     # -- événements --------------------------------------------------------
+
+    async def on_member_ban(self, guild: discord.Guild, user: discord.User | discord.Member) -> None:
+        await self.sanctions.on_ban(guild, user)
+
+    async def on_member_unban(self, guild: discord.Guild, user: discord.User) -> None:
+        await self.sanctions.on_unban(guild, user)
 
     async def on_member_update(self, before: discord.Member, after: discord.Member) -> None:
         # Un rôle staff posé ou retiré : la liste repart au portail (regroupée).

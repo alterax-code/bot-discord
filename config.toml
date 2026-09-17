@@ -127,3 +127,19 @@ staff_roles = [
   1544745832593756251,  # 📯 Community Manager
   1544749222622928916,  # 🔨 Buildeur
 ]
+
+
+[sanctions]
+# Miroir des bans Discord vers le serveur de jeu (décision Lucas, 17 septembre
+# 2026) : un ban posé ici devient un ban FAdmin en jeu, une levée le lève, par
+# le portail (PUT /api/pont/bans, même adresse et même secret que la whitelist).
+# Sens unique : un ban en jeu ne touche jamais au Discord.
+# Pour relire la liste complète des bans à intervalle (rattrapage d'un
+# événement manqué), le rôle du bot doit avoir « Bannir des membres » ; sans
+# cette permission, seuls les bans et levées vus en direct partent.
+# Les maîtres ne sont JAMAIS transmis : même bannis du Discord, ils restent
+# maîtres du jeu. Même liste que MAITRES dans le portail (src/lib/staff.ts).
+maitres = [
+  277789607251410944,  # Altérax
+  297731704976703498,  # Falcko
+]
