@@ -143,3 +143,27 @@ maitres = [
   277789607251410944,  # Altérax
   297731704976703498,  # Falcko
 ]
+
+
+[support]
+# Tickets de support des joueurs, unifiés avec le site (décision Lucas, 17
+# septembre 2026) : le bot remplace Ticket Tool. Un message à boutons dans le
+# salon support ouvre un ticket ; chaque ticket a son salon dans la catégorie
+# TICKETS ; ce qui passe par le bouton « Répondre » arrive sur le site et dans
+# le chat en jeu du joueur, ce qui s'écrit sur le site arrive dans le salon. Le
+# bavardage libre du salon reste sur Discord (le bot ne lit pas le contenu des
+# messages). À la fermeture, une transcription part dans le salon transcript
+# et le salon du ticket est supprimé : l'historique complet vit sur le site.
+# Même portail et même secret que [whitelist] ; désactivé sans eux.
+panel_channel = 1524700664582901786        # #🎫〡support
+category = 1524700665044271186             # ✦ TICKETS ✦
+transcript_channel = 1535397307225346140   # #transcript
+poll_seconds = 15
+# Les catégories du site (site web/content/tickets.json) : mêmes identifiants.
+categories = [
+  { id = "hrp",        label = "Ticket HRP",  emoji = "🛠️" },
+  { id = "boutique",   label = "Boutique",    emoji = "🪙" },
+  { id = "rp",         label = "Demande RP",  emoji = "🎭" },
+  { id = "suggestion", label = "Suggestion",  emoji = "💡" },
+  { id = "autre",      label = "Autre",       emoji = "📩" },
+]
