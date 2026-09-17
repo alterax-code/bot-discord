@@ -20,6 +20,7 @@ from .config import Config
 from .database import Database
 from .reactions import ReactionTracker
 from .sanctions import BanSync
+from .support import PanelSupportView, SupportService, TicketView
 from .tickets import TicketService
 from .ui import ArchiveView, PanelView
 from .validation import ValidationService
@@ -135,6 +136,8 @@ class GrandLineBot(discord.Client):
         self.whitelist = StaffSync(self, config)
         # Les bans Discord → le portail → un ban FAdmin en jeu.
         self.sanctions = BanSync(self, config)
+        # Les tickets de support, unifiés avec le site (le bot remplace Ticket Tool).
+        self.support = SupportService(self, config, db)
 
         # Une coche verte autorisée déclenche la chaîne de validation.
         self.reactions.on_validated = self.validation.validate
@@ -144,6 +147,8 @@ class GrandLineBot(discord.Client):
 
         self.panel_view = PanelView(self.tickets)
         self.archive_view = ArchiveView(self.validation)
+        self.support_panel_view = PanelSupportView(self.support)
+        self.support_ticket_view = TicketView(self.support)
 
     # -- cycle de vie ------------------------------------------------------
 
@@ -154,6 +159,8 @@ class GrandLineBot(discord.Client):
         # après un redémarrage.
         self.add_view(self.panel_view)
         self.add_view(self.archive_view)
+        self.add_view(self.support_panel_view)
+        self.add_view(self.support_ticket_view)
         log.info("Vues persistantes enregistrées : les boutons survivent aux redémarrages.")
 
     async def on_ready(self) -> None:
@@ -242,6 +249,7 @@ class GrandLineBot(discord.Client):
         # portail absent ne doit pas retarder le reste.
         await self.whitelist.demarrer()
         await self.sanctions.demarrer()
+        await self.support.demarrer(self.support_panel_view)
 
     # -- événements --------------------------------------------------------
 
