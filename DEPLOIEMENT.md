@@ -142,3 +142,35 @@ L'ancien meurt immédiatement.
 | Un ticket n'a pas été publié | Chercher `orphelin` dans les journaux : son contenu est en base |
 | Une validation semble bloquée | Redémarrer : la reprise termine les validations interrompues |
 | Plus de place sur le disque | `docker system prune -a` puis vérifier `/srv/grandline/backups/` |
+
+---
+
+## Piloter le serveur de jeu depuis Discord (/serveur)
+
+Les opérateurs listés dans `[serveur]` de `config.toml` tapent `/serveur`
+dans le salon dédié : `statut`, `start`, `stop`, `restart`. Le bot parle à
+l'API mTxServ avec les identifiants de son `.env` ; personne d'autre ne les
+voit.
+
+À poser une fois dans `/srv/grandline/bot/.env` (mêmes valeurs que
+`/srv/grandline/mtxserv.env` de la veille) :
+
+```
+MTXSERV_API_KEY=…
+MTXSERV_CLIENT_ID=…
+MTXSERV_CLIENT_SECRET=…
+MTXSERV_GAME_ID=709742
+```
+
+Puis `docker compose up -d --build`. Au démarrage, les journaux doivent dire :
+
+```
+Commandes slash synchronisées : /serveur.
+Pilotage du serveur : /serveur dans #…, 4 opérateur(s), API mTxServ armée.
+```
+
+Retirer la main à quelqu'un : enlever son identifiant de `operateurs`, puis
+redéployer. Pour que la commande n'apparaisse même pas aux autres membres :
+Paramètres du serveur → Intégrations → Grand Line RP → `/serveur` → limiter
+aux opérateurs. Le bot vérifie de toute façon lui-même le salon et la
+personne.
