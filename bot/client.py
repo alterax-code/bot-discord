@@ -20,6 +20,7 @@ from .config import Config
 from .database import Database
 from .reactions import ReactionTracker
 from .sanctions import BanSync
+from .serveur import ServeurService
 from .support import PanelSupportView, SupportService, TicketView
 from .tickets import TicketService
 from .ui import ArchiveView, PanelView
@@ -138,6 +139,8 @@ class GrandLineBot(discord.Client):
         self.sanctions = BanSync(self, config)
         # Les tickets de support, unifiés avec le site (le bot remplace Ticket Tool).
         self.support = SupportService(self, config, db)
+        # /serveur : start, stop, restart, statut du serveur de jeu par l'API mTxServ.
+        self.serveur = ServeurService(self, config)
 
         # Une coche verte autorisée déclenche la chaîne de validation.
         self.reactions.on_validated = self.validation.validate
@@ -162,6 +165,18 @@ class GrandLineBot(discord.Client):
         self.add_view(self.support_panel_view)
         self.add_view(self.support_ticket_view)
         log.info("Vues persistantes enregistrées : les boutons survivent aux redémarrages.")
+
+        # Les commandes slash, déclarées sur le serveur Discord (pas en global :
+        # une commande de guilde apparaît tout de suite, une globale met jusqu'à
+        # une heure). Synchroniser à chaque démarrage retire aussi une commande
+        # qui n'existerait plus.
+        self.serveur.enregistrer(self.tree)
+        try:
+            synced = await self.tree.sync(guild=discord.Object(id=self.config.guild_id))
+        except discord.HTTPException:
+            log.exception("Synchronisation des commandes slash en échec : /serveur peut manquer.")
+        else:
+            log.info("Commandes slash synchronisées : %s.", ", ".join("/" + c.name for c in synced) or "aucune")
 
     async def on_ready(self) -> None:
         # on_ready peut se déclencher plusieurs fois (reconnexions réseau).
@@ -250,6 +265,11 @@ class GrandLineBot(discord.Client):
         await self.whitelist.demarrer()
         await self.sanctions.demarrer()
         await self.support.demarrer(self.support_panel_view)
+        await self.serveur.demarrer()
+
+    async def close(self) -> None:
+        await self.serveur.fermer()
+        await super().close()
 
     # -- événements --------------------------------------------------------
 
