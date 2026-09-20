@@ -115,6 +115,22 @@ class Support:
 
 
 @dataclass(frozen=True, slots=True)
+class Serveur:
+    """Pilotage du serveur de jeu (/serveur) depuis un salon dédié, par une
+    liste nominative d'opérateurs. Les identifiants API mTxServ sont dans
+    l'environnement (MTXSERV_*), jamais ici. Désactivé sans salon ni opérateur."""
+    salon: int
+    operateurs: frozenset[int]
+    game_host: str
+    game_port: int
+    avertissement_secondes: int
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.salon and self.operateurs)
+
+
+@dataclass(frozen=True, slots=True)
 class Config:
     token: str
     log_level: str
@@ -129,6 +145,7 @@ class Config:
     whitelist: Whitelist
     sanctions: Sanctions
     support: Support
+    serveur: Serveur
 
     @property
     def channel_ids(self) -> dict[str, int]:
@@ -330,6 +347,32 @@ def load(config_path: Path | str = "config.toml", *, env_file: str | None = ".en
         categories=tuple(cats),
     )
 
+    # --- serveur : section optionnelle, secrets dans l'environnement ---
+    sv = data.get("serveur", {})
+    if not isinstance(sv, dict):
+        raise ConfigError("config.toml : [serveur] doit être une section.")
+    salon = sv.get("salon", 0)
+    if not isinstance(salon, int) or isinstance(salon, bool) or salon < 0:
+        raise ConfigError("config.toml : [serveur].salon doit être un identifiant numérique.")
+    operateurs = sv.get("operateurs", [])
+    if not isinstance(operateurs, list) or not all(
+        isinstance(o, int) and not isinstance(o, bool) for o in operateurs
+    ):
+        raise ConfigError("config.toml : [serveur].operateurs ne doit contenir que des identifiants numériques.")
+    game_port = sv.get("game_port", 0)
+    if not isinstance(game_port, int) or isinstance(game_port, bool) or not 0 <= game_port <= 65535:
+        raise ConfigError("config.toml : [serveur].game_port doit être un port valide.")
+    avert = sv.get("avertissement_secondes", 60)
+    if not isinstance(avert, int) or isinstance(avert, bool) or not 0 <= avert <= 600:
+        raise ConfigError("config.toml : [serveur].avertissement_secondes doit être un entier entre 0 et 600.")
+    serveur = Serveur(
+        salon=salon,
+        operateurs=frozenset(operateurs),
+        game_host=str(sv.get("game_host", "")).strip(),
+        game_port=game_port,
+        avertissement_secondes=avert,
+    )
+
     return Config(
         token=token,
         log_level=log_level,
@@ -349,4 +392,5 @@ def load(config_path: Path | str = "config.toml", *, env_file: str | None = ".en
         whitelist=whitelist,
         sanctions=sanctions,
         support=support,
+        serveur=serveur,
     )
