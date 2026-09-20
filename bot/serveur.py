@@ -9,11 +9,12 @@ RCON ni la base : retirer son identifiant de la liste lui retire la main.
 Garde-fous, tous vécus :
   - `start` sur un serveur déjà allumé le coupe et le relance (16/09/2026) :
     on sonde d'abord, et on refuse s'il répond.
-  - `stop` et `restart` demandent une confirmation par bouton. S'il y a des
-    joueurs, le serveur affiche d'abord son bandeau de compte à rebours (le
-    message « mtxserv.com - Server stop in N seconds. » que le panneau envoie
-    lui-même, reconnu par modules/announce/cl_shutdown.lua) ; annulable
-    jusqu'à la dernière seconde.
+  - `stop`, `restart` et `update` : s'il y a des joueurs, confirmation par
+    bouton puis bandeau de compte à rebours en jeu (le message « mtxserv.com -
+    Server stop in N seconds. » que le panneau envoie lui-même, reconnu par
+    modules/announce/cl_shutdown.lua), annulable jusqu'à la dernière seconde.
+    Personne en ligne : le geste part tout de suite, sans question (demande
+    Lucas, 21/09).
   - une seule opération à la fois (verrou) : deux opérateurs qui cliquent en
     même temps ne font pas deux gestes.
 
@@ -43,8 +44,21 @@ CHOIX = [
     app_commands.Choice(name="start — démarrer le serveur (s'il est éteint)", value="start"),
     app_commands.Choice(name="stop — arrêter le serveur (confirmation)", value="stop"),
     app_commands.Choice(name="restart — redémarrer le serveur (confirmation)", value="restart"),
+    app_commands.Choice(name="update — mettre à jour le serveur, comme « Mise à jour » du panneau", value="update"),
 ]
-VERBES = {"stop": ("Arrêter", "Arrêt"), "restart": ("Redémarrer", "Redémarrage")}
+VERBES = {
+    "stop": ("Arrêter", "Arrêt"),
+    "restart": ("Redémarrer", "Redémarrage"),
+    "update": ("Mettre à jour", "Mise à jour"),
+}
+# Le bandeau du jeu ne connaît que « stop » et « restart » : une mise à jour
+# coupe puis relance, on l'annonce comme un redémarrage.
+BANDEAU = {"stop": "stop", "restart": "restart", "update": "restart"}
+SUITE = {
+    "stop": "",
+    "restart": " Compter une à deux minutes avant qu'il réponde.",
+    "update": " Le serveur est indisponible le temps de la mise à jour ; `statut` dira quand il répond.",
+}
 ATTENTE_CONFIRMATION_S = 60
 
 
@@ -115,7 +129,7 @@ class ServeurService:
 
         @tree.command(
             name="serveur",
-            description="Pilote le serveur de jeu : statut, start, stop, restart.",
+            description="Pilote le serveur de jeu : statut, start, stop, restart, update.",
             guild=discord.Object(id=self.config.guild_id),
         )
         @app_commands.guild_only()
@@ -236,8 +250,13 @@ class ServeurService:
         verbe, nom = VERBES[action]
         qui = interaction.user.display_name
         info = await self._sonde()
-        preavis = self.cfg.avertissement_secondes if (info is not None and info.joueurs > 0) else 0
 
+        # Personne en ligne : rien à protéger, le geste part tout de suite.
+        if info is None or info.joueurs == 0:
+            await interaction.followup.send(await self._executer(action, qui, info))
+            return
+
+        preavis = self.cfg.avertissement_secondes
         question = f"⚠️ {verbe} le serveur ? Actuellement : {self._decrire(info)}."
         if preavis:
             question += f" Les joueurs auront {preavis} s de préavis en jeu."
@@ -251,7 +270,7 @@ class ServeurService:
 
         if preavis:
             # Le même message que le panneau : le jeu affiche son bandeau doré.
-            await self.panneau.commande(f"say mtxserv.com - Server {action} in {preavis} seconds.")
+            await self.panneau.commande(f"say mtxserv.com - Server {BANDEAU[action]} in {preavis} seconds.")
             annulation = AnnulationView(self, preavis)
             await message.edit(
                 content=f"⏳ {nom} dans {preavis} s, demandé par **{qui}**. Les joueurs sont prévenus en jeu.",
@@ -266,8 +285,13 @@ class ServeurService:
                 await message.edit(content=f"↩️ {nom} annulé par {annulation.par}, le serveur reste en ligne.", view=None)
                 return
 
-        if await self.panneau.action(action):
-            suite = " Compter une à deux minutes avant qu'il réponde." if action == "restart" else ""
-            await message.edit(content=f"🔴 {nom} demandé par **{qui}** à {self._heure()}.{suite}", view=None)
-        else:
-            await message.edit(content=f"💥 L'API mTxServ refuse le `{action}`. Voir les journaux du bot.", view=None)
+        await message.edit(content=await self._executer(action, qui, info), view=None)
+
+    async def _executer(self, action: str, qui: str, info: EtatA2S | None) -> str:
+        """Envoie le geste au panneau et rend la ligne à afficher dans le salon."""
+        nom = VERBES[action][1]
+        if not await self.panneau.action(action):
+            return f"💥 L'API mTxServ refuse le `{action}`. Voir les journaux du bot."
+        etat = "personne en ligne" if (info is None or info.joueurs == 0) else self._decrire(info)
+        genre = "demandée" if action == "update" else "demandé"
+        return f"🔴 {nom} {genre} par **{qui}** à {self._heure()} ({etat}).{SUITE[action]}"

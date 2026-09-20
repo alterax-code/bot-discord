@@ -176,15 +176,16 @@ categories = [
 
 [serveur]
 # Pilotage du serveur de jeu depuis Discord (décision Lucas, 21 septembre
-# 2026) : la commande /serveur (statut, start, stop, restart) n'est acceptée
+# 2026) : la commande /serveur (statut, start, stop, restart, update) n'est acceptée
 # que dans le salon ci-dessous ET de la part d'un opérateur de la liste. Le
 # bot parle à l'API mTxServ avec les identifiants MTXSERV_* de .env : les
 # opérateurs ne voient ni le panneau, ni le FTP, ni RCON, ni la base. Retirer
 # quelqu'un de cette liste suffit à lui retirer la main.
 #
-# Un stop ou un restart demande une confirmation par bouton ; si des joueurs
-# sont en ligne, le serveur affiche d'abord son bandeau de compte à rebours
-# pendant avertissement_secondes (le même message que le panneau mTxServ).
+# stop, restart et update : s'il y a des joueurs en ligne, confirmation par
+# bouton puis bandeau de compte à rebours en jeu pendant
+# avertissement_secondes (le même message que le panneau mTxServ) ; personne
+# en ligne, le geste part tout de suite.
 # La veille du VPS lit un stop demandé ici comme un arrêt voulu (dernier geste
 # game_stop) : elle ne relance pas, elle annonce « Fermé par le staff ».
 salon = 1549738297759113216                # salon dédié (staff)

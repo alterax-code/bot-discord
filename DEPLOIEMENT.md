@@ -148,7 +148,7 @@ L'ancien meurt immédiatement.
 ## Piloter le serveur de jeu depuis Discord (/serveur)
 
 Les opérateurs listés dans `[serveur]` de `config.toml` tapent `/serveur`
-dans le salon dédié : `statut`, `start`, `stop`, `restart`. Le bot parle à
+dans le salon dédié : `statut`, `start`, `stop`, `restart`, `update`. Le bot parle à
 l'API mTxServ avec les identifiants de son `.env` ; personne d'autre ne les
 voit.
 
