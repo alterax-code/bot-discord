@@ -176,7 +176,8 @@ categories = [
 
 [serveur]
 # Pilotage du serveur de jeu depuis Discord (décision Lucas, 21 septembre
-# 2026) : la commande /serveur (statut, start, stop, restart, update) n'est acceptée
+# 2026) : la commande /serveur (statut, start, stop, restart, et update pour
+# les mainteneurs) n'est acceptée
 # que dans le salon ci-dessous ET de la part d'un opérateur de la liste. Le
 # bot parle à l'API mTxServ avec les identifiants MTXSERV_* de .env : les
 # opérateurs ne voient ni le panneau, ni le FTP, ni RCON, ni la base. Retirer
@@ -192,6 +193,12 @@ salon = 1549738297759113216                # salon dédié (staff)
 operateurs = [
   785964198588055613,  # Sensei
   451177631518425089,  # Natsu
+  277789607251410944,  # Altérax
+  297731704976703498,  # Vaca (Falcko)
+]
+# Les seuls à voir et à lancer « update » (la mise à jour du panneau) :
+# la proposition n'apparaît qu'à eux dans le menu. Doivent être opérateurs.
+mainteneurs = [
   277789607251410944,  # Altérax
   297731704976703498,  # Vaca (Falcko)
 ]

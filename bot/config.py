@@ -121,6 +121,7 @@ class Serveur:
     l'environnement (MTXSERV_*), jamais ici. Désactivé sans salon ni opérateur."""
     salon: int
     operateurs: frozenset[int]
+    mainteneurs: frozenset[int]   # les seuls à voir et lancer « update »
     game_host: str
     game_port: int
     avertissement_secondes: int
@@ -359,6 +360,11 @@ def load(config_path: Path | str = "config.toml", *, env_file: str | None = ".en
         isinstance(o, int) and not isinstance(o, bool) for o in operateurs
     ):
         raise ConfigError("config.toml : [serveur].operateurs ne doit contenir que des identifiants numériques.")
+    mainteneurs = sv.get("mainteneurs", [])
+    if not isinstance(mainteneurs, list) or not all(
+        isinstance(o, int) and not isinstance(o, bool) for o in mainteneurs
+    ):
+        raise ConfigError("config.toml : [serveur].mainteneurs ne doit contenir que des identifiants numériques.")
     game_port = sv.get("game_port", 0)
     if not isinstance(game_port, int) or isinstance(game_port, bool) or not 0 <= game_port <= 65535:
         raise ConfigError("config.toml : [serveur].game_port doit être un port valide.")
@@ -368,6 +374,7 @@ def load(config_path: Path | str = "config.toml", *, env_file: str | None = ".en
     serveur = Serveur(
         salon=salon,
         operateurs=frozenset(operateurs),
+        mainteneurs=frozenset(mainteneurs) & frozenset(operateurs),
         game_host=str(sv.get("game_host", "")).strip(),
         game_port=game_port,
         avertissement_secondes=avert,

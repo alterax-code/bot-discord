@@ -38,13 +38,17 @@ from .mtxserv import EtatA2S, PanneauMTx, sonder
 
 log = logging.getLogger(__name__)
 
-# Les quatre actions, telles que Discord les propose dans le menu.
+# Les actions, telles que Discord les propose dans le menu. Proposées par
+# autocomplétion et non par une liste fixe : la liste dépend de qui tape
+# (« update » n'apparaît qu'aux mainteneurs).
 CHOIX = [
-    app_commands.Choice(name="statut — le serveur répond-il, combien de joueurs", value="statut"),
-    app_commands.Choice(name="start — démarrer le serveur (s'il est éteint)", value="start"),
-    app_commands.Choice(name="stop — arrêter le serveur (confirmation)", value="stop"),
-    app_commands.Choice(name="restart — redémarrer le serveur (confirmation)", value="restart"),
-    app_commands.Choice(name="update — mettre à jour le serveur, comme « Mise à jour » du panneau", value="update"),
+    ("statut", "statut — le serveur répond-il, combien de joueurs"),
+    ("start", "start — démarrer le serveur (s'il est éteint)"),
+    ("stop", "stop — arrêter le serveur (confirmation s'il y a des joueurs)"),
+    ("restart", "restart — redémarrer le serveur (confirmation s'il y a des joueurs)"),
+]
+CHOIX_MAINTENEUR = [
+    ("update", "update — mettre à jour le serveur, comme « Mise à jour » du panneau"),
 ]
 VERBES = {
     "stop": ("Arrêter", "Arrêt"),
@@ -127,16 +131,28 @@ class ServeurService:
             log.info("Pilotage du serveur : [serveur] non configuré, /serveur absente.")
             return
 
+        async def proposer(interaction: discord.Interaction, courant: str) -> list[app_commands.Choice[str]]:
+            return [app_commands.Choice(name=nom, value=valeur)
+                    for valeur, nom in self.propositions(interaction.user.id, courant)]
+
         @tree.command(
             name="serveur",
-            description="Pilote le serveur de jeu : statut, start, stop, restart, update.",
+            description="Pilote le serveur de jeu : statut, start, stop, restart.",
             guild=discord.Object(id=self.config.guild_id),
         )
         @app_commands.guild_only()
         @app_commands.describe(action="Ce qu'on demande au serveur")
-        @app_commands.choices(action=CHOIX)
-        async def serveur(interaction: discord.Interaction, action: app_commands.Choice[str]) -> None:
-            await self.commande(interaction, action.value)
+        @app_commands.autocomplete(action=proposer)
+        async def serveur(interaction: discord.Interaction, action: str) -> None:
+            await self.commande(interaction, action.strip().lower())
+
+    def propositions(self, user_id: int, courant: str = "") -> list[tuple[str, str]]:
+        """Les actions que cette personne peut choisir, filtrées par ce qu'elle a tapé."""
+        choix = list(CHOIX)
+        if user_id in self.cfg.mainteneurs:
+            choix += CHOIX_MAINTENEUR
+        courant = courant.strip().lower()
+        return [(v, n) for v, n in choix if courant in v]
 
     async def demarrer(self) -> None:
         if not self.enabled:
@@ -163,6 +179,15 @@ class ServeurService:
             return "Réservé aux opérateurs du serveur."
         return None
 
+    def refus_action(self, interaction: discord.Interaction, action: str) -> str | None:
+        """L'action tapée existe-t-elle, et cette personne y a-t-elle droit ?"""
+        permises = {v for v, _ in self.propositions(interaction.user.id)}
+        if action in permises:
+            return None
+        if action == "update":
+            return "`update` est réservé aux mainteneurs du serveur."
+        return "Action inconnue : statut, start, stop ou restart."
+
     async def clic_autorise(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id in self.cfg.operateurs:
             return True
@@ -172,7 +197,7 @@ class ServeurService:
     # -- la commande -------------------------------------------------------
 
     async def commande(self, interaction: discord.Interaction, action: str) -> None:
-        motif = self.refus(interaction)
+        motif = self.refus(interaction) or self.refus_action(interaction, action)
         if motif:
             await interaction.response.send_message(motif, ephemeral=True)
             return
