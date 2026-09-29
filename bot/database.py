@@ -34,17 +34,10 @@ def now_iso() -> str:
 
 SCHEMA_VERSION = 2
 
-# Tickets de support unifiés avec le site (bot/support.py, 2026-09-17) : la
-# correspondance salon Discord ↔ ticket du site. Le site est la source de
-# vérité du ticket ; ici on ne garde que de quoi retrouver le ticket depuis un
-# clic dans son salon, et qui l'a ouvert.
-_SCHEMA_SUPPORT = """
-CREATE TABLE IF NOT EXISTS support_tickets (
-    ticket_id  INTEGER PRIMARY KEY,
-    channel_id INTEGER NOT NULL UNIQUE,
-    opener_id  INTEGER,
-    created_at TEXT    NOT NULL
-);
+# Tables des modules retirés, supprimées des bases existantes : support_tickets
+# (tickets du site, retirés le 29/09/2026).
+_SCHEMA_RETRAITS = """
+DROP TABLE IF EXISTS support_tickets;
 """
 
 # --- États possibles d'un ticket -------------------------------------------
@@ -184,7 +177,7 @@ class Database:
 
     async def _migrate(self) -> None:
         await self.conn.executescript(_SCHEMA)
-        await self.conn.executescript(_SCHEMA_SUPPORT)
+        await self.conn.executescript(_SCHEMA_RETRAITS)
         await self.conn.commit()
 
         row = await self._fetchone("SELECT value FROM meta WHERE key = 'schema_version'")
