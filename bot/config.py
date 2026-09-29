@@ -99,22 +99,6 @@ class Sanctions:
 
 
 @dataclass(frozen=True, slots=True)
-class Support:
-    """Tickets de support unifiés Discord ↔ site. Désactivé si la section
-    manque ou si le portail n'est pas configuré ([whitelist])."""
-    enabled: bool
-    panel_channel: int
-    category: int
-    transcript_channel: int
-    poll_seconds: int
-    categories: tuple[tuple[str, str, str], ...]   # (id, label, emoji)
-
-    @property
-    def configured(self) -> bool:
-        return bool(self.enabled and self.panel_channel and self.category and self.transcript_channel and self.categories)
-
-
-@dataclass(frozen=True, slots=True)
 class Serveur:
     """Pilotage du serveur de jeu (/serveur) depuis un salon dédié, par une
     liste nominative d'opérateurs. Les identifiants API mTxServ sont dans
@@ -145,7 +129,6 @@ class Config:
     behaviour: Behaviour
     whitelist: Whitelist
     sanctions: Sanctions
-    support: Support
     serveur: Serveur
 
     @property
@@ -322,32 +305,6 @@ def load(config_path: Path | str = "config.toml", *, env_file: str | None = ".en
         raise ConfigError("config.toml : [sanctions].maitres ne doit contenir que des identifiants numériques.")
     sanctions = Sanctions(maitres=frozenset(maitres))
 
-    # --- support : section optionnelle ---
-    su = data.get("support", {})
-    if not isinstance(su, dict):
-        raise ConfigError("config.toml : [support] doit être une section.")
-    def _id(key: str) -> int:
-        v = su.get(key, 0)
-        if not isinstance(v, int) or isinstance(v, bool) or v < 0:
-            raise ConfigError(f"config.toml : [support].{key} doit être un identifiant numérique.")
-        return v
-    cats: list[tuple[str, str, str]] = []
-    for c in su.get("categories", []):
-        if not isinstance(c, dict) or not isinstance(c.get("id"), str) or not isinstance(c.get("label"), str):
-            raise ConfigError("config.toml : [support].categories attend des tables {id, label, emoji}.")
-        cats.append((c["id"], c["label"], str(c.get("emoji", ""))))
-    poll = su.get("poll_seconds", 15)
-    if not isinstance(poll, int) or isinstance(poll, bool) or poll < 5:
-        raise ConfigError("config.toml : [support].poll_seconds doit être un entier ≥ 5.")
-    support = Support(
-        enabled=bool(su.get("enabled", False)),
-        panel_channel=_id("panel_channel"),
-        category=_id("category"),
-        transcript_channel=_id("transcript_channel"),
-        poll_seconds=poll,
-        categories=tuple(cats),
-    )
-
     # --- serveur : section optionnelle, secrets dans l'environnement ---
     sv = data.get("serveur", {})
     if not isinstance(sv, dict):
@@ -398,6 +355,5 @@ def load(config_path: Path | str = "config.toml", *, env_file: str | None = ".en
         behaviour=behaviour,
         whitelist=whitelist,
         sanctions=sanctions,
-        support=support,
         serveur=serveur,
     )
